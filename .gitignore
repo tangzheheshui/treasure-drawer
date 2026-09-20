@@ -1,0 +1,6 @@
+node_modules/
+dist/
+verify-scratch/
+*.local
+.DS_Store
+Thumbs.db
