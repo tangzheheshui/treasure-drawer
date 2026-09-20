@@ -93,6 +93,8 @@
   .icon-sm { width: 40px; height: 40px; border: 0; background: none; font-size: 19px; color: var(--ink2);
              cursor: pointer; border-radius: var(--r-sm); flex: none; }
   .icon-sm:active { background: var(--bg); }
+  .fee { font-style: normal; font-size: 11px; color: var(--ink3); border: 1px solid var(--line);
+         border-radius: 4px; padding: 0 4px; margin-left: 6px; vertical-align: 2px; }
 
   /* 六态演示区：hidden 属性控制显隐 */
   [data-state] { border-radius: var(--r); }
@@ -221,6 +223,7 @@
             <p class="muted" style="margin-top:4px">头像点一下就换 · 资料只存本机</p>
           </div>
         </div>
+        <button class="item" data-action="打开登录" id="loginItem">登录 / 注册</button>
         <button class="item" data-action="打开意见反馈">意见反馈</button>
         <button class="item" data-action="打开购买">购买支持</button>
         <button class="item" data-action="打开关于">关于百宝抽屉</button>
@@ -671,6 +674,35 @@
     <button id="tabTools" data-action="切到工具库"><span class="ti">🧰</span>工具库</button>
   </nav>
 
+  <!-- 收费提示（屏幕级：任何页都可能触发，不能嵌在某一页里） -->
+  <div class="mask center" id="mLock" hidden>
+    <div class="dialog">
+      <h3 id="lockTitle">擦图 是收费工具</h3>
+      <p id="lockDesc">¥6 一次买断，支付通道工程阶段接；登录后演示直接可用</p>
+      <div class="row">
+        <button class="btn grow" data-action="关闭弹层">先不用</button>
+        <button class="btn pri grow" data-action="去登录解锁">登录解锁</button>
+      </div>
+    </div>
+  </div>
+  <!-- 登录 / 注册 -->
+  <div class="mask" id="mLogin" hidden>
+    <div class="sheet">
+      <h3>登录 / 注册</h3>
+      <div class="label">手机号</div>
+      <input class="input" id="loginPhone" inputmode="numeric" maxlength="11" placeholder="11 位手机号">
+      <div class="label">验证码</div>
+      <div class="row">
+        <input class="input grow" id="loginCode" inputmode="numeric" maxlength="4" placeholder="4 位">
+        <button class="btn" data-action="获取验证码" style="min-height:44px">获取验证码</button>
+      </div>
+      <p class="muted" style="margin-top:8px">账号只为收费工具解锁，收藏数据仍只存本机<br>原型不接真短信：手机号填 11 位、验证码填 4 位即可</p>
+      <div class="row" style="margin-top:16px">
+        <button class="btn grow" data-action="关闭弹层">取消</button>
+        <button class="btn pri grow" data-action="登录">登录</button>
+      </div>
+    </div>
+  </div>
   <div class="toast" id="toast" hidden></div>
 </div>
 </div>
@@ -684,9 +716,9 @@ const TOOLS = [
   { id: 'password',   name: '密码生成',     group: '日常', icon: '🔑', desc: '按长度与字符类型出强密码' },
   { id: 'convert',    name: '单位换算',     group: '日常', icon: '⚖️', desc: '长度重量温度互算' },
   { id: 'color',      name: '颜色转换',     group: '日常', icon: '🎨', desc: 'HEX 与 RGB 与 HSL 互转' },
-  { id: 'eraser',     name: '擦图',         group: '日常', icon: '🧽', desc: '涂抹抹掉图片局部' },
+  { id: 'eraser',     name: '擦图',         group: '日常', icon: '🧽', desc: '涂抹抹掉图片局部', fee: 6 },
   { id: 'count',      name: '字数统计',     group: '效率', icon: '🔢', desc: '字符汉字词段行' },
-  { id: 'diff',       name: '文本对比',     group: '效率', icon: '🔀', desc: '两段文本行级差异' },
+  { id: 'diff',       name: '文本对比',     group: '效率', icon: '🔀', desc: '两段文本行级差异', fee: 6 },
   { id: 'timer',      name: '倒计时番茄钟', group: '效率', icon: '⏱️', desc: '专注计时与休息' },
   { id: 'random',     name: '随机抽签',     group: '效率', icon: '🎲', desc: '随机数与名单抽签' },
   { id: 'scoreboard', name: '记分牌',       group: '现场', icon: '🏆', desc: '红蓝两队计分' },
@@ -702,6 +734,8 @@ const store = {
 }
 let favs = store.get('favs', ['timer', 'qrcode', 'password', 'ruler'])
 let profile = store.get('profile', { name: '抽屉主人', avatar: '🦊' })
+let auth = store.get('auth', { logged: false, phone: '' })
+let lockTool = null
 const demo = { 抽屉首页: null, 工具列表: null }
 
 /* ═══════════ 导航 ═══════════ */
@@ -722,9 +756,11 @@ function show(name) {
   if (name !== '倒计时番茄钟') leaveTimer()
   $('.screen').scrollTop = 0
 }
-function goTab(name) { stack = [name]; show(name) }
-function go(name) { stack.push(name); show(name) }
+function goTab(name) { stack = [name]; show(name); try { history.pushState({ td: 1 }, '') } catch { /* file:// 降级 */ } }
+function go(name) { stack.push(name); show(name); try { history.pushState({ td: 1 }, '') } catch { /* file:// 降级 */ } }
 function back() { if (stack.length > 1) stack.pop(); show(stack[stack.length - 1]) }
+/* 手机返回逻辑：顶栏 ← 之外，系统/浏览器返回手势也走同一个返回栈 */
+addEventListener('popstate', () => { if (stack.length > 1) { stack.pop(); show(stack[stack.length - 1]) } })
 function openTool(id) { go(byId(id).name); paintStar(id) }
 
 /* ═══════════ 首页 ═══════════ */
@@ -740,7 +776,7 @@ function renderHome() {
   setZones('抽屉首页', 'main')
   const grid = $('#favGrid'); grid.innerHTML = ''
   favs.forEach(id => { const t = byId(id); grid.insertAdjacentHTML('beforeend',
-    `<button class="tool-card" data-action="打开工具页" data-tool="${id}"><span class="ic">${t.icon}</span><b>${t.name}</b></button>`) })
+    `<button class="tool-card" data-action="打开工具页" data-tool="${id}"><span class="ic">${t.icon}${t.fee ? '<i class="fee">¥</i>' : ''}</span><b>${t.name}</b></button>`) })
 }
 function favToggle(id) {
   if (favs.includes(id)) { favs = favs.filter(x => x !== id); toast('已移出') }
@@ -774,7 +810,7 @@ function renderTools() {
       g.insertAdjacentHTML('beforeend',
         `<div class="tool-row" data-action="打开工具页" data-tool="${t.id}">
           <span class="ic">${t.icon}</span>
-          <span class="nm grow">${t.name}</span>
+          <span class="nm grow">${t.name}${t.fee ? '<i class="fee">¥</i>' : ''}</span>
           <button class="icon-sm" aria-label="${inFav ? '已收藏，点按移出' : '收进抽屉'}"
             style="color:${inFav ? 'var(--ink)' : 'var(--ink3)'}"
             data-action="${inFav ? '移出抽屉' : '添加到抽屉'}" data-tool="${t.id}">${inFav ? '♥' : '♡'}</button>
@@ -787,6 +823,18 @@ function renderTools() {
 function paintProfile() {
   $('#profAvatar').textContent = profile.avatar
   $('#profName').value = profile.name
+}
+function paintAuth() {
+  const it = $('#loginItem')
+  if (auth.logged) {
+    it.textContent = '退出登录（' + auth.phone + '）'
+    it.dataset.action = '退出登录'
+    it.classList.add('danger')
+  } else {
+    it.textContent = '登录 / 注册'
+    it.dataset.action = '打开登录'
+    it.classList.remove('danger')
+  }
 }
 function saveName() {
   profile.name = $('#profName').value.trim() || '抽屉主人'
@@ -1166,12 +1214,36 @@ const A = {
   '切到抽屉': () => goTab('抽屉首页'),
   '切到工具库': () => goTab('工具列表'),
   '返回上一页': () => back(),
-  '打开工具页': b => openTool(b.dataset.tool),
-  '打开设置面板': () => { paintProfile(); $('#mSettings').hidden = false },
+  '打开工具页': b => {
+    const t = byId(b.dataset.tool)
+    if (t.fee && !auth.logged) {
+      lockTool = t
+      $('#lockTitle').textContent = t.name + ' 是收费工具'
+      $('#lockDesc').textContent = '¥' + t.fee + ' 一次买断，支付通道工程阶段接；登录后演示直接可用'
+      $('#mLock').hidden = false
+      return
+    }
+    openTool(t.id)
+  },
+  '打开设置面板': () => { paintProfile(); paintAuth(); $('#mSettings').hidden = false },
   '切换头像': () => {
     const avs = ['🦊', '🐼', '🐸', '🐧', '🦉', '😎']
     profile.avatar = avs[(avs.indexOf(profile.avatar) + 1) % avs.length]
     store.set('profile', profile); paintProfile()
+  },
+  '打开登录': () => { $('#mSettings').hidden = true; $('#mLogin').hidden = false },
+  '去登录解锁': () => { $('#mLock').hidden = true; $('#mLogin').hidden = false },
+  '获取验证码': () => toast('验证码已发出（演示：随便填 4 位）'),
+  '登录': () => {
+    const p = $('#loginPhone').value.trim(), c = $('#loginCode').value.trim()
+    if (p.length !== 11 || c.length !== 4) { toast('手机号 11 位、验证码 4 位，原型随意填'); return }
+    auth = { logged: true, phone: p }; store.set('auth', auth)
+    paintAuth(); closeMasks(); toast('登录成功（演示），收费工具已解锁')
+    if (lockTool) { const t = lockTool; lockTool = null; openTool(t.id) }
+  },
+  '退出登录': () => {
+    auth = { logged: false, phone: '' }; store.set('auth', auth)
+    paintAuth(); toast('已退出登录，收藏还在本机')
   },
   '打开意见反馈': () => { $('#mSettings').hidden = true; $('#mFeedback').hidden = false },
   '提交反馈': () => {
@@ -1275,7 +1347,7 @@ document.addEventListener('click', e => {
     sel.selectedIndex = 0
   }
   TOOLS.forEach(t => paintStar(t.id))
-  convFillUnits(); convertColor(); renderCount(); renderHome(); renderTools(); drawRuler(); randOnInput(); qrOnInput()
+  convFillUnits(); convertColor(); renderCount(); renderHome(); renderTools(); drawRuler(); randOnInput(); qrOnInput(); paintProfile(); paintAuth()
   $('#diffEmpty').hidden = false
   $('#timerDisabled').hidden = false
   $('#timerStart').classList.add('off')

@@ -5,7 +5,7 @@
 > 组件库：**antd-mobile 5.43.0**（React 18.3）
 > 交付形态：**纯 Web**（响应式，手机优先 390 宽基准）
 > 路由模式：**HashRouter**
-> 账号：**无登录**
+> 账号：**可选登录**（只为收费工具解锁；收藏数据仍只存本机，登录通道工程阶段接自有 PocketBase auth.tangzheheshui.cn）
 > 数据存哪：**IndexedDB 本地**（idb-keyval 适配器接口锁死，无备份导入导出）
 
 配套选型：Vite 6 + TypeScript + zustand（业务/瞬态双 store）+ idb-keyval；二维码编码 build 阶段引 `qrcode` 库；图标用 antd-mobile-icons。React 锁 18.3（tutor-desk 同版本同机实测稳定）。
@@ -67,7 +67,7 @@
 
 ## 明确不做
 
-- 登录/注册/找回密码页（无登录）
+- 独立登录页与找回密码流（登录做成弹层，只为收费工具解锁）
 - 云同步与冲突策略（纯本地，扩展池）
 - 无限滚动/虚拟长列表/图表（列表短且无图表需求）
 - Capacitor 套壳（纯 Web 先行）
