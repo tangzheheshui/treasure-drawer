@@ -93,10 +93,6 @@
   .icon-sm { width: 40px; height: 40px; border: 0; background: none; font-size: 19px; color: var(--ink2);
              cursor: pointer; border-radius: var(--r-sm); flex: none; }
   .icon-sm:active { background: var(--bg); }
-  .handle { display: flex; align-items: center; gap: var(--sp-2); background: var(--card);
-            border: 1px solid var(--line); border-radius: var(--r); padding: 6px 8px 6px 14px; margin-bottom: var(--sp-3); }
-  .handle b { flex: 1; font-size: 15px; }
-  .strip { display: flex; gap: var(--sp-2); overflow-x: auto; padding-bottom: var(--sp-1); }
 
   /* 六态演示区：hidden 属性控制显隐 */
   [data-state] { border-radius: var(--r); }
@@ -112,12 +108,18 @@
   /* 弹层 */
   .mask { position: absolute; inset: 0; z-index: 20; background: rgba(20,22,26,.45); display: flex; align-items: flex-end; }
   .mask.center { align-items: center; justify-content: center; padding: 32px; }
+  .mask.right { align-items: stretch; justify-content: flex-end; padding: 0; }
   .sheet { background: var(--card); width: 100%; border-radius: 16px 16px 0 0; padding: var(--sp-4); padding-bottom: calc(var(--sp-4) + env(safe-area-inset-bottom, 0px)); }
+  .drawer-panel { width: 300px; max-width: 86%; background: var(--card); height: 100%; padding: 14px;
+                  padding-top: calc(14px + env(safe-area-inset-top, 0px)); padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+                  box-shadow: -8px 0 24px rgba(0,0,0,.18); overflow-y: auto; }
+  .profile { display: flex; gap: 12px; align-items: center; border-bottom: 1px solid var(--line); padding: 14px 0 16px; margin-bottom: 6px; }
+  .avatar { width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); font-size: 30px; cursor: pointer; flex: none; }
   .sheet h3 { font-size: 16px; margin-bottom: var(--sp-3); text-align: center; }
-  .sheet .item { display: block; width: 100%; text-align: left; min-height: 48px; border: 0; background: none;
+  .sheet .item, .drawer-panel .item { display: block; width: 100%; text-align: left; min-height: 48px; border: 0; background: none;
                  font-size: 16px; padding: 12px 8px; border-bottom: 1px solid var(--line); cursor: pointer; color: var(--ink); }
-  .sheet .item:active { background: var(--bg); }
-  .sheet .item.danger { color: var(--danger); }
+  .sheet .item:active, .drawer-panel .item:active { background: var(--bg); }
+  .sheet .item.danger, .drawer-panel .item.danger { color: var(--danger); }
   .dialog { background: var(--card); border-radius: 14px; padding: var(--sp-5); width: 300px; }
   .dialog p { margin: var(--sp-3) 0 var(--sp-4); color: var(--ink2); }
   [hidden] { display: none !important; }
@@ -183,18 +185,10 @@
     <header class="bar">
       <div class="side"></div>
       <h1>百宝抽屉</h1>
-      <div class="side r"><button class="iconbtn" data-action="打开设置菜单" aria-label="设置">⚙</button></div>
+      <div class="side r"><button class="iconbtn" data-action="打开设置面板" aria-label="设置">⚙</button></div>
     </header>
     <div class="body">
-      <div class="zone-main" id="homeMain">
-        <div class="handle">
-          <b>抽屉 · <span id="favCount">0</span> 个工具</b>
-          <button class="btn" style="min-height:34px;padding:4px 10px;font-size:13px" data-action="打开整理抽屉">整理</button>
-          <button class="btn" style="min-height:34px;padding:4px 10px;font-size:13px" data-action="收起抽屉" id="foldBtn">收起</button>
-        </div>
-        <div id="favGrid" class="grid2"></div>
-        <div id="favStrip" class="strip" hidden></div>
-      </div>
+      <div class="zone-main" id="homeMain"><div id="favGrid" class="grid2"></div></div>
 
       <div class="hint" data-state="empty" hidden>
         <p style="font-size:32px">🗂</p>
@@ -213,31 +207,55 @@
       </div>
     </div>
 
-    <!-- 设置菜单 -->
-    <div class="mask" id="mSettings" hidden>
-      <div class="sheet">
-        <h3>设置</h3>
-        <button class="item" data-action="打开心愿池">心愿池</button>
+    <!-- 设置（右侧滑出面板） -->
+    <div class="mask right" id="mSettings" hidden>
+      <div class="drawer-panel">
+        <div class="row" style="justify-content:space-between">
+          <b>设置</b>
+          <button class="iconbtn" data-action="关闭弹层" aria-label="关闭">✕</button>
+        </div>
+        <div class="profile">
+          <button class="avatar" data-action="切换头像" id="profAvatar" aria-label="换头像">🦊</button>
+          <div class="grow">
+            <input class="input" id="profName" maxlength="12" style="min-height:38px" oninput="saveName()">
+            <p class="muted" style="margin-top:4px">头像点一下就换 · 资料只存本机</p>
+          </div>
+        </div>
+        <button class="item" data-action="打开意见反馈">意见反馈</button>
+        <button class="item" data-action="打开购买">购买支持</button>
         <button class="item" data-action="打开关于">关于百宝抽屉</button>
         <button class="item danger" data-action="恢复默认收藏">恢复默认收藏</button>
-        <button class="item" style="text-align:center;color:var(--ink3)" data-action="关闭弹层">取消</button>
       </div>
     </div>
-    <!-- 心愿池（工具心愿收集） -->
-    <div class="mask" id="mWish" hidden>
+    <!-- 意见反馈 -->
+    <div class="mask" id="mFeedback" hidden>
       <div class="sheet">
-        <h3>心愿池 · 想要什么小工具</h3>
-        <div id="wishList"></div>
-        <div class="label">你希望抽屉里还有哪个工具</div>
-        <textarea class="input" id="wishText" rows="2" placeholder="比如：报销税率计算"></textarea>
-        <div class="label">一般在什么场景用（选填）</div>
-        <input class="input" id="wishScene" placeholder="比如：月底贴票报销时">
-        <div class="row" style="margin-top:12px">
-          <button class="btn pri grow" data-action="许个愿">许个愿</button>
-          <button class="btn grow" data-action="复制心愿">复制给开发者</button>
+        <h3>意见反馈</h3>
+        <div class="label">想说什么（想要什么工具、哪里别扭，都行）</div>
+        <textarea class="input" id="fbText" rows="4"></textarea>
+        <div class="label">联系方式（选填）</div>
+        <input class="input" id="fbContact" placeholder="微信 / 邮箱">
+        <div class="row" style="margin-top:16px">
+          <button class="btn grow" data-action="关闭弹层">取消</button>
+          <button class="btn pri grow" data-action="提交反馈">复制并发出</button>
         </div>
-        <p class="muted" style="margin-top:8px">心愿先存在本机；点「复制给开发者」粘到仓库 issues 或微信，心愿就进了开发者的小本本</p>
-        <button class="btn block" style="margin-top:8px" data-action="关闭弹层">关闭</button>
+        <p class="muted" style="margin-top:8px">应用纯本地没有服务器：提交 = 复制反馈内容，粘给开发者（仓库 issues 或微信）就完成了</p>
+      </div>
+    </div>
+    <!-- 购买支持 -->
+    <div class="mask center" id="mBuy" hidden>
+      <div class="dialog">
+        <h3>购买支持</h3>
+        <p>工具全部永久免费；这一杯是请开发者的咖啡。</p>
+        <div class="seg" id="buySeg">
+          <button class="on" data-action="选档位" data-price="6.6">¥6.6</button>
+          <button data-action="选档位" data-price="12">¥12</button>
+        </div>
+        <div class="row" style="margin-top:16px">
+          <button class="btn grow" data-action="关闭弹层">先不了</button>
+          <button class="btn pri grow" data-action="购买">请杯咖啡</button>
+        </div>
+        <p class="muted" style="margin-top:8px">原型不接真支付，支付通道工程阶段接</p>
       </div>
     </div>
     <!-- 关于 -->
@@ -281,33 +299,6 @@
           <p style="font-size:13px;margin:6px 0">可能开了隐私模式。工具都能用，但收藏暂时存不了。</p>
         </div>
         <div id="toolGroupsRo" style="margin-top:12px"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══════════ 整理抽屉 ═══════════ -->
-  <section class="page" data-page="整理抽屉">
-    <header class="bar">
-      <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
-      <h1>整理抽屉</h1>
-      <div class="side r"><button class="btn" style="min-height:34px;padding:4px 10px;font-size:13px" data-action="返回上一页">完成</button></div>
-    </header>
-    <div class="body">
-      <div class="zone-main" id="sortMain"><div id="sortList"></div></div>
-      <div class="hint" data-state="empty" hidden>
-        <p style="font-size:32px">🗂</p>
-        <p>抽屉空着，先去收几个工具</p>
-        <p style="margin-top:12px"><button class="btn pri" data-action="切到工具库">去工具库</button></p>
-      </div>
-      <div class="mask center" id="mConfirmSort" hidden>
-        <div class="dialog">
-          <h3 id="confirmSortText">从抽屉移除「密码生成」？</h3>
-          <p class="muted">工具还在工具库里，随时能再收进来。</p>
-          <div class="row">
-            <button class="btn grow" data-action="关闭弹层">取消</button>
-            <button class="btn warn grow" data-action="确认执行">移除</button>
-          </div>
-        </div>
       </div>
     </div>
   </section>
@@ -710,8 +701,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('td.' + k, JSON.stringify(v)) } catch { /* 隐私模式静默 */ } },
 }
 let favs = store.get('favs', ['timer', 'qrcode', 'password', 'ruler'])
-let wishes = store.get('wishes', [])
-let fold = false
+let profile = store.get('profile', { name: '抽屉主人', avatar: '🦊' })
 const demo = { 抽屉首页: null, 工具列表: null }
 
 /* ═══════════ 导航 ═══════════ */
@@ -725,7 +715,6 @@ function show(name) {
   $('#tabTools').classList.toggle('on', name === '工具列表')
   if (name === '抽屉首页') { renderHome(); leaveTimer() }
   if (name === '工具列表') renderTools()
-  if (name === '整理抽屉') renderSort()
   if (name === '尺子') drawRuler()
   if (name === '倒计时番茄钟') timerRender()
   if (name === '擦图') { $('#eraserEmpty').hidden = eraserOn; $('#eraserWork').hidden = !eraserOn }
@@ -749,29 +738,15 @@ function renderHome() {
   if (st) { setZones('抽屉首页', st); return }
   if (!favs.length) { setZones('抽屉首页', 'empty'); return }
   setZones('抽屉首页', 'main')
-  $('#favCount').textContent = favs.length
-  $('#foldBtn').textContent = fold ? '展开' : '收起'
-  $('#foldBtn').dataset.action = fold ? '展开抽屉' : '收起抽屉'
-  $('#favGrid').hidden = fold
   const grid = $('#favGrid'); grid.innerHTML = ''
-  if (!fold) favs.forEach(id => { const t = byId(id); grid.insertAdjacentHTML('beforeend',
+  favs.forEach(id => { const t = byId(id); grid.insertAdjacentHTML('beforeend',
     `<button class="tool-card" data-action="打开工具页" data-tool="${id}"><span class="ic">${t.icon}</span><b>${t.name}</b></button>`) })
-  const strip = $('#favStrip'); strip.hidden = !fold
-  strip.innerHTML = ''
-  if (fold) {
-    if (favs.length) {
-      favs.forEach(id => { const t = byId(id); strip.insertAdjacentHTML('beforeend',
-        `<button class="chip" data-action="打开工具页" data-tool="${id}"><span>${t.icon}</span>${t.name}</button>`) })
-    } else {
-      strip.innerHTML = '<span class="muted" style="padding:8px">抽屉还空着</span>'
-    }
-  }
 }
 function favToggle(id) {
   if (favs.includes(id)) { favs = favs.filter(x => x !== id); toast('已移出') }
   else { favs.push(id); toast('已收藏') }
   store.set('favs', favs)
-  paintStar(id); renderHome(); renderTools(); renderSort()
+  paintStar(id); renderHome(); renderTools()
 }
 function paintStar(id) {
   const pg = pageEl(byId(id).name)
@@ -808,49 +783,19 @@ function renderTools() {
   })
 }
 
-/* ═══════════ 整理抽屉 ═══════════ */
-function renderSort() {
-  const st = demo['抽屉首页']
-  if (!favs.length) { setZones('整理抽屉', 'empty'); $('#sortMain').hidden = true; return }
-  setZones('整理抽屉', 'main'); $('#sortMain').hidden = false
-  const l = $('#sortList'); l.innerHTML = ''
-  favs.forEach((id, i) => { const t = byId(id)
-    l.insertAdjacentHTML('beforeend',
-      `<div class="tool-row" style="cursor:default">
-        <span class="ic">${t.icon}</span>
-        <span class="nm grow">${t.name}</span>
-        <button class="icon-sm" data-action="上移收藏" data-tool="${id}" aria-label="上移">↑</button>
-        <button class="icon-sm" data-action="下移收藏" data-tool="${id}" aria-label="下移">↓</button>
-        <button class="icon-sm" data-action="打开通用确认" data-scene="sort" data-tool="${id}" aria-label="移除" style="color:var(--danger)">✕</button>
-      </div>`)
-  })
+/* ═══════════ 个人资料（设置面板） ═══════════ */
+function paintProfile() {
+  $('#profAvatar').textContent = profile.avatar
+  $('#profName').value = profile.name
 }
-function sortMove(id, dir) {
-  const i = favs.indexOf(id), j = i + dir
-  if (i < 0 || j < 0 || j >= favs.length) return
-  ;[favs[i], favs[j]] = [favs[j], favs[i]]
-  store.set('favs', favs); renderSort()
-}
-
-/* ═══════════ 心愿池 ═══════════ */
-function renderWishes() {
-  const l = $('#wishList')
-  if (!wishes.length) { l.innerHTML = '<p class="muted" style="text-align:center;padding:8px 0">池子还空着，许第一条愿</p>'; return }
-  l.innerHTML = wishes.map((w, i) =>
-    `<div class="row" style="border-bottom:1px solid var(--line);padding:8px 0">
-       <span class="grow" style="font-size:14px">🔧 ${w.text}${w.scene ? '<br><span class="muted">' + w.scene + '</span>' : ''}</span>
-       <button class="icon-sm" data-action="删除心愿" data-wish="${i}" aria-label="撤下心愿" style="color:var(--danger)">✕</button>
-     </div>`).join('')
+function saveName() {
+  profile.name = $('#profName').value.trim() || '抽屉主人'
+  store.set('profile', profile)
 }
 
 /* ═══════════ 通用确认 ═══════════ */
 let confirmFn = null
-function openConfirm(scene, id) {
-  if (scene === 'sort') {
-    $('#confirmSortText').textContent = '从抽屉移除「' + byId(id).name + '」？'
-    confirmFn = () => { favs = favs.filter(x => x !== id); store.set('favs', favs); renderSort(); renderHome(); toast('已移出抽屉') }
-    $('#mConfirmSort').hidden = false
-  }
+function openConfirm(scene) {
   if (scene === 'score') {
     confirmFn = () => { scores.red = 0; scores.blue = 0; renderScore(); toast('比分已清零') }
     $('#mConfirmScore').hidden = false
@@ -1193,7 +1138,7 @@ function drawRuler() {
 const EXAMPLES = {
   qrcode: () => { $('#qrText').value = 'https://github.com/tangzheheshui/treasure-drawer'; qrOnInput() },
   count: () => { $('#countText').value = '百宝抽屉是一个小工具抽屉：常用工具收藏即取，进工具即全屏专注。\n\nYou can count characters, hanzi, words, paragraphs and lines here.\n\n第三段用来数段落。'; renderCount() },
-  diff: () => { $('#diffA').value = '百宝抽屉\n收纳常用工具\n抽屉可以收起\n三组分类\n纯本地存储'; $('#diffB').value = '百宝抽屉\n收纳常用小工具\n抽屉可以收起\n三组分类\n纯本地存储\n心愿池收心愿'; renderDiff() },
+  diff: () => { $('#diffA').value = '百宝抽屉\n收纳常用工具\n三组分类\n纯本地存储'; $('#diffB').value = '百宝抽屉\n收纳常用小工具\n三组分类\n纯本地存储\n专注模式全屏'; renderDiff() },
   color: () => { $('#colorIn').value = 'rgb(15, 118, 110)'; convertColor() },
   random: () => { $('#nameList').value = '老王\n小赵\n阿芳\n大周\n老郑\n小林'; randOnInput() },
   fakecall: () => { $('#callName').value = '快递上门'; $('#callNum').value = '10086'; },
@@ -1222,31 +1167,31 @@ const A = {
   '切到工具库': () => goTab('工具列表'),
   '返回上一页': () => back(),
   '打开工具页': b => openTool(b.dataset.tool),
-  '打开整理抽屉': () => go('整理抽屉'),
-  '收起抽屉': () => { fold = true; renderHome() },
-  '展开抽屉': () => { fold = false; renderHome() },
-  '打开设置菜单': () => { $('#mSettings').hidden = false },
+  '打开设置面板': () => { paintProfile(); $('#mSettings').hidden = false },
+  '切换头像': () => {
+    const avs = ['🦊', '🐼', '🐸', '🐧', '🦉', '😎']
+    profile.avatar = avs[(avs.indexOf(profile.avatar) + 1) % avs.length]
+    store.set('profile', profile); paintProfile()
+  },
+  '打开意见反馈': () => { $('#mSettings').hidden = true; $('#mFeedback').hidden = false },
+  '提交反馈': () => {
+    const t = $('#fbText').value.trim()
+    if (!t) { toast('先写一句想说的'); return }
+    const c = $('#fbContact').value.trim()
+    copyText('【百宝抽屉反馈】' + t + (c ? '（联系：' + c + '）' : ''))
+    $('#fbText').value = ''; $('#fbContact').value = ''
+    closeMasks(); toast('已复制，粘给开发者就行')
+  },
+  '打开购买': () => { $('#mSettings').hidden = true; $('#mBuy').hidden = false },
+  '选档位': b => { b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)) },
+  '购买': () => { closeMasks(); toast('谢谢支持（演示：支付通道工程阶段接）') },
   '打开关于': () => { $('#mSettings').hidden = true; $('#mAbout').hidden = false },
-  '打开心愿池': () => { $('#mSettings').hidden = true; renderWishes(); $('#mWish').hidden = false },
-  '许个愿': () => {
-    const text = $('#wishText').value.trim()
-    if (!text) { toast('先写想要什么工具'); return }
-    wishes.push({ text, scene: $('#wishScene').value.trim() })
-    store.set('wishes', wishes)
-    $('#wishText').value = ''; $('#wishScene').value = ''
-    renderWishes(); toast('心愿进池了')
-  },
-  '删除心愿': b => { wishes.splice(+b.dataset.wish, 1); store.set('wishes', wishes); renderWishes(); toast('心愿撤下了') },
-  '复制心愿': () => {
-    if (!wishes.length) { toast('池子还空着，先许个愿'); return }
-    copyText('【百宝抽屉·心愿池】\n' + wishes.map(w => '· ' + w.text + (w.scene ? '（' + w.scene + '）' : '')).join('\n'))
-  },
   '关闭弹层': () => closeMasks(),
   '恢复默认收藏': () => {
     favs = ['timer', 'qrcode', 'password', 'ruler']; store.set('favs', favs)
     closeMasks(); renderHome(); toast('已恢复默认收藏 4 个')
   },
-  '打开通用确认': b => openConfirm(b.dataset.scene, b.dataset.tool),
+  '打开通用确认': b => openConfirm(b.dataset.scene),
   '确认执行': () => { const fn = confirmFn; closeMasks(); fn && fn() },
   '演示空态': () => setDemo('empty'),
   '演示加载': () => setDemo('loading'),
@@ -1255,8 +1200,6 @@ const A = {
   '添加到抽屉': b => { if (!favs.includes(b.dataset.tool)) favToggle(b.dataset.tool) },
   '移出抽屉': b => favToggle(b.dataset.tool),
   '清空搜索': () => { $('#searchInput').value = ''; renderTools() },
-  '上移收藏': b => sortMove(b.dataset.tool, -1),
-  '下移收藏': b => sortMove(b.dataset.tool, 1),
   '复制结果': b => copyText($('#' + b.dataset.copyId).textContent),
   '填入示例': b => EXAMPLES[b.dataset.tool] && EXAMPLES[b.dataset.tool](),
   '清空输入': b => clearTool(b.dataset.tool),
@@ -1328,7 +1271,6 @@ document.addEventListener('click', e => {
   sel.onchange = () => {
     const name = sel.value
     if (TABS.includes(name)) goTab(name)
-    else if (name === '整理抽屉') go('整理抽屉')
     else { openTool(byId(TOOLS.find(t => t.name === name).id).id) }
     sel.selectedIndex = 0
   }
