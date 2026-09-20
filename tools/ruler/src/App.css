@@ -1,0 +1,21 @@
+* { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent; }
+html, body, #root { height: 100%; }
+body { font: 14px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; color: #1f2329; background: #fafafa; overflow: hidden; }
+
+.app { height: 100%; position: relative; }
+canvas { display: block; }
+
+.gear { position: fixed; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: 42px; height: 42px;
+        border-radius: 50%; border: 1px solid #e6e8eb; background: #ffffffcc; font-size: 18px; color: #4e5969;
+        cursor: pointer; backdrop-filter: blur(4px); }
+
+.panel { position: fixed; right: 14px; bottom: calc(66px + env(safe-area-inset-bottom, 0px)); width: 250px;
+         background: #fff; border: 1px solid #e6e8eb; border-radius: 10px; padding: 14px 16px;
+         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); }
+.ptitle { font-size: 12px; color: #4e5969; margin-bottom: 10px; }
+.pval { font-size: 12px; color: #8a919f; margin: 8px 0 12px; }
+.pbtn { width: 100%; min-height: 38px; border: 0; border-radius: 6px; background: #4e5969; color: #fff;
+        font-size: 14px; font-weight: 600; cursor: pointer; }
+
+.hint { position: fixed; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+        font-size: 11px; color: #b0b6bf; pointer-events: none; white-space: nowrap; }

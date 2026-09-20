@@ -1,0 +1,37 @@
+* { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent; }
+html, body, #root { height: 100%; }
+body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; color: #fff;
+       background: #101215; overflow: hidden; }
+
+.app { height: 100%; position: relative; }
+.stage3d { position: absolute; inset: 0; }
+.stage3d canvas { display: block; }
+
+.hud { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); left: 14px; right: 14px;
+       display: flex; justify-content: space-between; align-items: center; }
+.stepper { display: flex; align-items: center; gap: 10px; background: #ffffff1c; border-radius: 22px;
+           padding: 4px 12px 4px 4px; backdrop-filter: blur(6px); }
+.stepper button { width: 36px; height: 36px; border: 0; border-radius: 50%; background: #ffffff2b;
+                  color: #fff; font-size: 20px; cursor: pointer; }
+.stepper button:disabled { opacity: 0.4; }
+.stepper b { font-size: 18px; min-width: 20px; text-align: center; }
+.stepper span { font-size: 13px; opacity: 0.75; }
+.snd { width: 42px; height: 42px; border: 0; border-radius: 50%; background: #ffffff1c; font-size: 18px;
+       cursor: pointer; backdrop-filter: blur(6px); }
+
+.total { position: absolute; top: 38%; left: 50%; transform: translateX(-50%); font-size: 44px;
+         font-weight: 700; text-shadow: 0 4px 18px rgba(0, 0, 0, 0.6); pointer-events: none;
+         opacity: 0; transition: opacity 0.25s ease; }
+.total.on { opacity: 1; animation: pop 0.4s ease-out; }
+@keyframes pop { from { transform: translateX(-50%) scale(0.5); opacity: 0; } }
+
+.hint { position: absolute; left: 50%; bottom: calc(146px + env(safe-area-inset-bottom, 0px));
+        transform: translateX(-50%); font-size: 13px; letter-spacing: 1px; opacity: 0.55;
+        pointer-events: none; animation: fadein 0.4s ease-out; white-space: nowrap; }
+@keyframes fadein { from { opacity: 0; } }
+
+.roll { position: absolute; left: 50%; bottom: calc(34px + env(safe-area-inset-bottom, 0px));
+        transform: translateX(-50%); width: 96px; height: 96px; border-radius: 50%; border: 0;
+        background: linear-gradient(160deg, #b3342e, #7d1f1b); color: #fff; font-size: 22px;
+        font-weight: 700; cursor: pointer; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+.roll:disabled { filter: grayscale(0.5) brightness(0.7); }
