@@ -76,8 +76,8 @@
 
   /* 收藏宫格与工具行 */
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
-  .tool-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: var(--sp-4) var(--sp-3);
-               text-align: left; cursor: pointer; min-height: 88px; display: flex; flex-direction: column; gap: 4px; }
+  .tool-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: var(--sp-3);
+               text-align: left; cursor: pointer; min-height: 72px; display: flex; flex-direction: column; gap: 4px; }
   .tool-card:active { background: var(--bg); }
   .tool-card .ic { font-size: 26px; }
   .tool-card b { font-size: 15px; }
@@ -90,6 +90,9 @@
   .tool-row .ds { font-size: 12px; color: var(--ink3); }
   .chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px;
           background: var(--card); border: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+  .icon-sm { width: 40px; height: 40px; border: 0; background: none; font-size: 19px; color: var(--ink2);
+             cursor: pointer; border-radius: var(--r-sm); flex: none; }
+  .icon-sm:active { background: var(--bg); }
   .handle { display: flex; align-items: center; gap: var(--sp-2); background: var(--card);
             border: 1px solid var(--line); border-radius: var(--r); padding: 6px 8px 6px 14px; margin-bottom: var(--sp-3); }
   .handle b { flex: 1; font-size: 15px; }
@@ -167,7 +170,6 @@
   <button data-action="演示空态">演示空</button>
   <button data-action="演示加载">演示加载</button>
   <button data-action="演示错误">演示错误</button>
-  <button data-action="演示提交中">演示提交中</button>
   <button data-action="恢复正常">恢复正常</button>
   <span class="tip">灰白原型：看流程与状态，配色定稿在下一阶段</span>
 </div>
@@ -192,13 +194,6 @@
         </div>
         <div id="favGrid" class="grid2"></div>
         <div id="favStrip" class="strip" hidden></div>
-        <div id="recentWrap" hidden>
-          <div class="label">最近使用</div>
-          <div id="recentRow" class="strip"></div>
-        </div>
-        <button class="tool-row" style="justify-content:center;margin-top:var(--sp-3)" data-action="切到工具库">
-          <span class="ic">🧰</span><b>去工具库逛逛</b><span class="muted grow" style="text-align:right">12 个工具</span>
-        </button>
       </div>
 
       <div class="hint" data-state="empty" hidden>
@@ -222,36 +217,27 @@
     <div class="mask" id="mSettings" hidden>
       <div class="sheet">
         <h3>设置</h3>
-        <button class="item" data-action="打开导出备份">导出备份</button>
-        <button class="item" data-action="打开导入备份">导入备份</button>
+        <button class="item" data-action="打开心愿池">心愿池</button>
         <button class="item" data-action="打开关于">关于百宝抽屉</button>
         <button class="item danger" data-action="恢复默认收藏">恢复默认收藏</button>
         <button class="item" style="text-align:center;color:var(--ink3)" data-action="关闭弹层">取消</button>
       </div>
     </div>
-    <!-- 导出备份 -->
-    <div class="mask" id="mExport" hidden>
+    <!-- 心愿池（工具心愿收集） -->
+    <div class="mask" id="mWish" hidden>
       <div class="sheet">
-        <h3>导出备份</h3>
-        <div class="label">文件名</div>
-        <input class="input" id="exportName" value="百宝抽屉-收藏-2026-09-20.json">
-        <div data-state="submitting" hidden id="exporting" class="hint" style="margin-top:12px;text-align:center">正在导出</div>
-        <div class="row" style="margin-top:16px">
-          <button class="btn grow" data-action="关闭弹层">取消</button>
-          <button class="btn pri grow" data-action="确认导出备份">导出</button>
+        <h3>心愿池 · 想要什么小工具</h3>
+        <div id="wishList"></div>
+        <div class="label">你希望抽屉里还有哪个工具</div>
+        <textarea class="input" id="wishText" rows="2" placeholder="比如：报销税率计算"></textarea>
+        <div class="label">一般在什么场景用（选填）</div>
+        <input class="input" id="wishScene" placeholder="比如：月底贴票报销时">
+        <div class="row" style="margin-top:12px">
+          <button class="btn pri grow" data-action="许个愿">许个愿</button>
+          <button class="btn grow" data-action="复制心愿">复制给开发者</button>
         </div>
-      </div>
-    </div>
-    <!-- 导入备份 -->
-    <div class="mask" id="mImport" hidden>
-      <div class="sheet">
-        <h3>导入备份</h3>
-        <div class="label">粘贴导出的备份内容（JSON）</div>
-        <textarea class="input mono" id="importText" rows="5" placeholder='{"favs":["qrcode","timer"]}'></textarea>
-        <div class="row" style="margin-top:16px">
-          <button class="btn grow" data-action="关闭弹层">取消</button>
-          <button class="btn pri grow" data-action="确认导入备份">导入</button>
-        </div>
+        <p class="muted" style="margin-top:8px">心愿先存在本机；点「复制给开发者」粘到仓库 issues 或微信，心愿就进了开发者的小本本</p>
+        <button class="btn block" style="margin-top:8px" data-action="关闭弹层">关闭</button>
       </div>
     </div>
     <!-- 关于 -->
@@ -331,7 +317,7 @@
     <header class="bar">
       <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
       <h1>二维码生成</h1>
-      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="qrcode">☆</button></div>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="qrcode">♡/button></div>
     </header>
     <div class="body">
       <div class="card">
@@ -364,7 +350,7 @@
     <header class="bar">
       <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
       <h1>密码生成</h1>
-      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="password">☆</button></div>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="password">♡/button></div>
     </header>
     <div class="body">
       <div class="card">
@@ -395,7 +381,7 @@
     <header class="bar">
       <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
       <h1>单位换算</h1>
-      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="convert">☆</button></div>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="convert">♡/button></div>
     </header>
     <div class="body">
       <div class="card">
@@ -423,7 +409,7 @@
     <header class="bar">
       <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
       <h1>颜色转换</h1>
-      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="color">☆</button></div>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="color">♡/button></div>
     </header>
     <div class="body">
       <div class="card">
@@ -442,7 +428,7 @@
     <header class="bar">
       <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
       <h1>擦图</h1>
-      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="eraser">☆</button></div>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="eraser">♡/button></div>
     </header>
     <div class="body">
       <div class="hint" data-state="empty" hidden id="eraserEmpty">
@@ -472,7 +458,7 @@
     <header class="bar">
       <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
       <h1>字数统计</h1>
-      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="count">☆</button></div>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="count">♡/button></div>
     </header>
     <div class="body">
       <textarea class="input" id="countText" rows="7" placeholder="粘贴或输入文本" oninput="renderCount()"></textarea>
@@ -499,7 +485,7 @@
     <header class="bar">
       <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
       <h1>文本对比</h1>
-      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="diff">☆</button></div>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="diff">♡/button></div>
     </header>
     <div class="body">
       <div class="row">
@@ -522,7 +508,7 @@
     <header class="bar">
       <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
       <h1>倒计时番茄钟</h1>
-      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="timer">☆</button></div>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="timer">♡/button></div>
     </header>
     <div class="body">
       <div class="card" style="text-align:center">
@@ -550,7 +536,7 @@
     <header class="bar">
       <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
       <h1>随机抽签</h1>
-      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="random">☆</button></div>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="random">♡/button></div>
     </header>
     <div class="body">
       <div class="seg" id="randSeg">
@@ -588,7 +574,7 @@
     <header class="bar">
       <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
       <h1>记分牌</h1>
-      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="scoreboard">☆</button></div>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="scoreboard">♡/button></div>
     </header>
     <div class="body">
       <div class="score-wrap">
@@ -629,7 +615,7 @@
     <header class="bar">
       <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
       <h1>模拟来电</h1>
-      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="fakecall">☆</button></div>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="fakecall">♡/button></div>
     </header>
     <div class="body">
       <div class="card">
@@ -675,7 +661,7 @@
     <header class="bar">
       <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
       <h1>尺子</h1>
-      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="ruler">☆</button></div>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="ruler">♡/button></div>
     </header>
     <div class="body">
       <div class="card">
@@ -724,7 +710,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('td.' + k, JSON.stringify(v)) } catch { /* 隐私模式静默 */ } },
 }
 let favs = store.get('favs', ['timer', 'qrcode', 'password', 'ruler'])
-let recents = store.get('recents', ['timer', 'qrcode'])
+let wishes = store.get('wishes', [])
 let fold = false
 const demo = { 抽屉首页: null, 工具列表: null }
 
@@ -750,8 +736,7 @@ function show(name) {
 function goTab(name) { stack = [name]; show(name) }
 function go(name) { stack.push(name); show(name) }
 function back() { if (stack.length > 1) stack.pop(); show(stack[stack.length - 1]) }
-function openTool(id) { go(byId(id).name); pushRecent(id); paintStar(id) }
-function pushRecent(id) { recents = [id, ...recents.filter(x => x !== id)].slice(0, 6); store.set('recents', recents) }
+function openTool(id) { go(byId(id).name); paintStar(id) }
 
 /* ═══════════ 首页 ═══════════ */
 function setZones(pageName, state) {
@@ -770,7 +755,7 @@ function renderHome() {
   $('#favGrid').hidden = fold
   const grid = $('#favGrid'); grid.innerHTML = ''
   if (!fold) favs.forEach(id => { const t = byId(id); grid.insertAdjacentHTML('beforeend',
-    `<button class="tool-card" data-action="打开工具页" data-tool="${id}"><span class="ic">${t.icon}</span><b>${t.name}</b><span>${t.desc}</span></button>`) })
+    `<button class="tool-card" data-action="打开工具页" data-tool="${id}"><span class="ic">${t.icon}</span><b>${t.name}</b></button>`) })
   const strip = $('#favStrip'); strip.hidden = !fold
   strip.innerHTML = ''
   if (fold) {
@@ -781,23 +766,17 @@ function renderHome() {
       strip.innerHTML = '<span class="muted" style="padding:8px">抽屉还空着</span>'
     }
   }
-  const rw = $('#recentWrap'), rr = $('#recentRow')
-  rw.hidden = !fold || !recents.length
-  rr.innerHTML = ''
-  recents.forEach(id => { const t = byId(id); rr.insertAdjacentHTML('beforeend',
-    `<button class="chip" data-action="打开工具页" data-tool="${id}"><span>${t.icon}</span>${t.name}</button>`) })
 }
 function favToggle(id) {
-  const t = byId(id)
-  if (favs.includes(id)) { favs = favs.filter(x => x !== id); toast('已移出抽屉：' + t.name) }
-  else { favs.push(id); toast('已收进抽屉：' + t.name) }
+  if (favs.includes(id)) { favs = favs.filter(x => x !== id); toast('已移出') }
+  else { favs.push(id); toast('已收藏') }
   store.set('favs', favs)
   paintStar(id); renderHome(); renderTools(); renderSort()
 }
 function paintStar(id) {
   const pg = pageEl(byId(id).name)
   const star = pg && pg.querySelector('[data-action="切换收藏"]')
-  if (star) star.textContent = favs.includes(id) ? '★' : '☆'
+  if (star) star.textContent = favs.includes(id) ? '♥' : '♡'
 }
 
 /* ═══════════ 工具列表 ═══════════ */
@@ -820,9 +799,10 @@ function renderTools() {
       g.insertAdjacentHTML('beforeend',
         `<div class="tool-row" data-action="打开工具页" data-tool="${t.id}">
           <span class="ic">${t.icon}</span>
-          <span class="grow"><span class="nm">${t.name}</span><br><span class="ds">${t.desc}</span></span>
-          <button class="btn" style="min-height:34px;padding:4px 10px;font-size:13px;${inFav ? 'opacity:.55' : ''}"
-            data-action="${inFav ? '移出抽屉' : '添加到抽屉'}" data-tool="${t.id}">${inFav ? '已收藏' : '收进抽屉'}</button>
+          <span class="nm grow">${t.name}</span>
+          <button class="icon-sm" aria-label="${inFav ? '已收藏，点按移出' : '收进抽屉'}"
+            style="color:${inFav ? 'var(--ink)' : 'var(--ink3)'}"
+            data-action="${inFav ? '移出抽屉' : '添加到抽屉'}" data-tool="${t.id}">${inFav ? '♥' : '♡'}</button>
         </div>`)
     })
   })
@@ -838,10 +818,10 @@ function renderSort() {
     l.insertAdjacentHTML('beforeend',
       `<div class="tool-row" style="cursor:default">
         <span class="ic">${t.icon}</span>
-        <span class="grow"><span class="nm">${t.name}</span></span>
-        <button class="btn" data-action="上移收藏" data-tool="${id}" style="min-height:34px;padding:4px 10px">↑</button>
-        <button class="btn" data-action="下移收藏" data-tool="${id}" style="min-height:34px;padding:4px 10px">↓</button>
-        <button class="btn warn" data-action="打开通用确认" data-scene="sort" data-tool="${id}" style="min-height:34px;padding:4px 10px">移除</button>
+        <span class="nm grow">${t.name}</span>
+        <button class="icon-sm" data-action="上移收藏" data-tool="${id}" aria-label="上移">↑</button>
+        <button class="icon-sm" data-action="下移收藏" data-tool="${id}" aria-label="下移">↓</button>
+        <button class="icon-sm" data-action="打开通用确认" data-scene="sort" data-tool="${id}" aria-label="移除" style="color:var(--danger)">✕</button>
       </div>`)
   })
 }
@@ -850,6 +830,17 @@ function sortMove(id, dir) {
   if (i < 0 || j < 0 || j >= favs.length) return
   ;[favs[i], favs[j]] = [favs[j], favs[i]]
   store.set('favs', favs); renderSort()
+}
+
+/* ═══════════ 心愿池 ═══════════ */
+function renderWishes() {
+  const l = $('#wishList')
+  if (!wishes.length) { l.innerHTML = '<p class="muted" style="text-align:center;padding:8px 0">池子还空着，许第一条愿</p>'; return }
+  l.innerHTML = wishes.map((w, i) =>
+    `<div class="row" style="border-bottom:1px solid var(--line);padding:8px 0">
+       <span class="grow" style="font-size:14px">🔧 ${w.text}${w.scene ? '<br><span class="muted">' + w.scene + '</span>' : ''}</span>
+       <button class="icon-sm" data-action="删除心愿" data-wish="${i}" aria-label="撤下心愿" style="color:var(--danger)">✕</button>
+     </div>`).join('')
 }
 
 /* ═══════════ 通用确认 ═══════════ */
@@ -867,7 +858,6 @@ function openConfirm(scene, id) {
 }
 function closeMasks() {
   document.querySelectorAll('.mask').forEach(m => { m.hidden = true })
-  $('#exporting').hidden = true
   confirmFn = null
 }
 
@@ -1203,7 +1193,7 @@ function drawRuler() {
 const EXAMPLES = {
   qrcode: () => { $('#qrText').value = 'https://github.com/tangzheheshui/treasure-drawer'; qrOnInput() },
   count: () => { $('#countText').value = '百宝抽屉是一个小工具抽屉：常用工具收藏即取，进工具即全屏专注。\n\nYou can count characters, hanzi, words, paragraphs and lines here.\n\n第三段用来数段落。'; renderCount() },
-  diff: () => { $('#diffA').value = '百宝抽屉\n收纳常用工具\n抽屉可以收起\n三组分类\n纯本地存储'; $('#diffB').value = '百宝抽屉\n收纳常用小工具\n抽屉可以收起\n四个字分组\n纯本地存储\n支持备份导出'; renderDiff() },
+  diff: () => { $('#diffA').value = '百宝抽屉\n收纳常用工具\n抽屉可以收起\n三组分类\n纯本地存储'; $('#diffB').value = '百宝抽屉\n收纳常用小工具\n抽屉可以收起\n三组分类\n纯本地存储\n心愿池收心愿'; renderDiff() },
   color: () => { $('#colorIn').value = 'rgb(15, 118, 110)'; convertColor() },
   random: () => { $('#nameList').value = '老王\n小赵\n阿芳\n大周\n老郑\n小林'; randOnInput() },
   fakecall: () => { $('#callName').value = '快递上门'; $('#callNum').value = '10086'; },
@@ -1236,34 +1226,22 @@ const A = {
   '收起抽屉': () => { fold = true; renderHome() },
   '展开抽屉': () => { fold = false; renderHome() },
   '打开设置菜单': () => { $('#mSettings').hidden = false },
-  '打开导出备份': () => { $('#mSettings').hidden = true; $('#mExport').hidden = false },
-  '打开导入备份': () => { $('#mSettings').hidden = true; $('#mImport').hidden = false },
   '打开关于': () => { $('#mSettings').hidden = true; $('#mAbout').hidden = false },
+  '打开心愿池': () => { $('#mSettings').hidden = true; renderWishes(); $('#mWish').hidden = false },
+  '许个愿': () => {
+    const text = $('#wishText').value.trim()
+    if (!text) { toast('先写想要什么工具'); return }
+    wishes.push({ text, scene: $('#wishScene').value.trim() })
+    store.set('wishes', wishes)
+    $('#wishText').value = ''; $('#wishScene').value = ''
+    renderWishes(); toast('心愿进池了')
+  },
+  '删除心愿': b => { wishes.splice(+b.dataset.wish, 1); store.set('wishes', wishes); renderWishes(); toast('心愿撤下了') },
+  '复制心愿': () => {
+    if (!wishes.length) { toast('池子还空着，先许个愿'); return }
+    copyText('【百宝抽屉·心愿池】\n' + wishes.map(w => '· ' + w.text + (w.scene ? '（' + w.scene + '）' : '')).join('\n'))
+  },
   '关闭弹层': () => closeMasks(),
-  '确认导出备份': () => {
-    $('#exporting').hidden = false
-    setTimeout(() => {
-      $('#exporting').hidden = true
-      closeMasks()
-      const favsJson = JSON.stringify({ app: 'treasure-drawer', date: '2026-09-20', favs })
-      try {
-        const a = document.createElement('a')
-        a.href = URL.createObjectURL(new Blob([favsJson], { type: 'application/json' }))
-        a.download = $('#exportName').value || '百宝抽屉-收藏.json'
-        a.click(); URL.revokeObjectURL(a.href)
-        toast('备份已导出')
-      } catch { toast('备份内容已生成（下载被浏览器拦了）') }
-    }, 700)
-  },
-  '确认导入备份': () => {
-    try {
-      const data = JSON.parse($('#importText').value)
-      if (!Array.isArray(data.favs)) throw new Error('bad')
-      favs = data.favs.filter(id => byId(id))
-      store.set('favs', favs)
-      closeMasks(); renderHome(); toast('导入成功，收 ' + favs.length + ' 个工具')
-    } catch { toast('格式不对：要完整粘贴导出的备份内容') }
-  },
   '恢复默认收藏': () => {
     favs = ['timer', 'qrcode', 'password', 'ruler']; store.set('favs', favs)
     closeMasks(); renderHome(); toast('已恢复默认收藏 4 个')
@@ -1273,7 +1251,6 @@ const A = {
   '演示空态': () => setDemo('empty'),
   '演示加载': () => setDemo('loading'),
   '演示错误': () => setDemo('error'),
-  '演示提交中': () => { goTab('抽屉首页'); $('#mExport').hidden = false; A['确认导出备份']() },
   '恢复正常': () => setDemo('main'),
   '添加到抽屉': b => { if (!favs.includes(b.dataset.tool)) favToggle(b.dataset.tool) },
   '移出抽屉': b => favToggle(b.dataset.tool),
