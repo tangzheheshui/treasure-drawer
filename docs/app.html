@@ -1,0 +1,1366 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>百宝抽屉 · 可点原型</title>
+<style>
+  :root {
+    --bg: #f2f3f5; --card: #ffffff; --ink: #1f2329; --ink2: #4e5969; --ink3: #8a919f;
+    --line: #e6e8eb; --brand: #4e5969; --brand-ink: #ffffff; --danger: #b42318;
+    --ok: #2b7a4b; --r: 8px; --r-sm: 6px;
+    --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px;
+  }
+  * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { background: #dfe2e6; }
+  body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; color: var(--ink); }
+
+  /* 验收导航条（定稿后删） */
+  .proto { position: sticky; top: 0; z-index: 99; background: #23262b; color: #d6d9de;
+           padding: 8px 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+  .proto b { color: #fff; }
+  .proto select { font-size: 13px; padding: 4px 6px; border-radius: 4px; border: 1px solid #555; background: #2e3238; color: #eee; max-width: 150px; }
+  .proto button { font-size: 12px; padding: 4px 8px; border-radius: 4px; border: 1px solid #555; background: #2e3238; color: #d6d9de; cursor: pointer; }
+  .proto button:hover { background: #3a3f47; }
+  .proto .tip { color: #9aa1ab; }
+
+  /* 手机壳 */
+  .stage { display: flex; justify-content: center; padding: 20px 0 48px; }
+  .phone { width: 390px; height: 844px; background: var(--bg); border-radius: 28px;
+           border: 8px solid #23262b; box-shadow: 0 12px 40px rgba(0,0,0,.35); overflow: hidden; position: relative; }
+  .screen { height: 100%; overflow-y: auto; overflow-x: hidden; position: relative; }
+
+  /* 页面 */
+  .page { display: none; flex-direction: column; min-height: 100%; }
+  .page.active { display: flex; }
+  body[data-chrome=focus] .tabbar { display: none; }
+  .bar { position: sticky; top: 0; z-index: 5; background: var(--card); border-bottom: 1px solid var(--line);
+         padding: 10px 12px; display: flex; align-items: center; gap: var(--sp-2); min-height: 52px; }
+  .bar h1 { font-size: 17px; flex: 1; text-align: center; }
+  .bar .side { width: 64px; display: flex; }
+  .bar .side.r { justify-content: flex-end; }
+  .iconbtn { min-width: 44px; min-height: 44px; border: 0; background: none; font-size: 20px; color: var(--ink2); cursor: pointer; border-radius: var(--r-sm); }
+  .iconbtn:active { background: var(--bg); }
+  .body { flex: 1; padding: var(--sp-4); padding-bottom: 96px; }
+  body[data-chrome=focus] .body { padding-bottom: 32px; }
+
+  /* 底部页签 */
+  .tabbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 6; display: flex;
+            background: var(--card); border-top: 1px solid var(--line);
+            padding-bottom: env(safe-area-inset-bottom, 6px); }
+  .tabbar button { flex: 1; min-height: 54px; border: 0; background: none; font-size: 12px; color: var(--ink3); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 6px; }
+  .tabbar button .ti { font-size: 20px; }
+  .tabbar button.on { color: var(--brand); font-weight: 600; }
+
+  /* 通用部件 */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: var(--sp-4); margin-bottom: var(--sp-3); }
+  .btn { min-height: 44px; padding: 10px 16px; border-radius: var(--r-sm); border: 1px solid var(--line);
+         background: var(--card); color: var(--ink); font-size: 16px; cursor: pointer; }
+  .btn:active { background: var(--bg); }
+  .btn.pri { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); font-weight: 600; }
+  .btn.warn { color: var(--danger); border-color: #e3b7b0; }
+  .btn.block { display: block; width: 100%; }
+  .btn[aria-disabled=true], .btn.off { opacity: .45; pointer-events: none; }
+  .row { display: flex; gap: var(--sp-2); align-items: center; }
+  .grow { flex: 1; }
+  .muted { color: var(--ink3); font-size: 13px; }
+  .input, textarea.input, select.input { width: 100%; min-height: 44px; font-size: 16px; padding: 10px 12px;
+        border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--card); color: var(--ink); }
+  textarea.input { resize: vertical; }
+  .seg { display: flex; background: var(--bg); border-radius: var(--r-sm); padding: 3px; gap: 3px; }
+  .seg button { flex: 1; min-height: 36px; border: 0; border-radius: 5px; background: none; color: var(--ink2); font-size: 15px; cursor: pointer; }
+  .seg button.on { background: var(--card); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .label { font-size: 13px; color: var(--ink3); margin: var(--sp-3) 0 var(--sp-1); }
+  .big-result { font-size: 40px; font-weight: 700; text-align: center; padding: var(--sp-4); font-variant-numeric: tabular-nums; }
+  .mono { font-family: ui-monospace, Consolas, monospace; }
+
+  /* 收藏宫格与工具行 */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+  .tool-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: var(--sp-4) var(--sp-3);
+               text-align: left; cursor: pointer; min-height: 88px; display: flex; flex-direction: column; gap: 4px; }
+  .tool-card:active { background: var(--bg); }
+  .tool-card .ic { font-size: 26px; }
+  .tool-card b { font-size: 15px; }
+  .tool-card span { font-size: 12px; color: var(--ink3); }
+  .tool-row { width: 100%; display: flex; align-items: center; gap: var(--sp-3); background: var(--card);
+              border: 1px solid var(--line); border-radius: var(--r); padding: var(--sp-3); margin-bottom: var(--sp-2); cursor: pointer; }
+  .tool-row:active { background: var(--bg); }
+  .tool-row .ic { font-size: 24px; }
+  .tool-row .nm { font-size: 15px; font-weight: 600; }
+  .tool-row .ds { font-size: 12px; color: var(--ink3); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px;
+          background: var(--card); border: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+  .handle { display: flex; align-items: center; gap: var(--sp-2); background: var(--card);
+            border: 1px solid var(--line); border-radius: var(--r); padding: 6px 8px 6px 14px; margin-bottom: var(--sp-3); }
+  .handle b { flex: 1; font-size: 15px; }
+  .strip { display: flex; gap: var(--sp-2); overflow-x: auto; padding-bottom: var(--sp-1); }
+
+  /* 六态演示区：hidden 属性控制显隐 */
+  [data-state] { border-radius: var(--r); }
+  .hint { padding: 10px 12px; font-size: 13px; border: 1px dashed var(--line); background: var(--bg); color: var(--ink2); }
+  .hint[data-state=error], .banner[data-state=error] { border: 1px solid #e3b7b0; background: #faf1ef; color: var(--danger); }
+  .hint[data-state=overflow] { border-color: #d9c58a; background: #faf7ec; color: #7a6420; }
+  .hint[data-state=disabled] { border-color: var(--line); background: var(--bg); color: var(--ink3); }
+  .hint[data-state=empty] { text-align: center; padding: var(--sp-5) var(--sp-4); color: var(--ink2); }
+  .skel { height: 64px; border-radius: var(--r); background: linear-gradient(90deg, #eceef1 25%, #f5f6f8 45%, #eceef1 65%);
+          background-size: 200% 100%; animation: shine 1.1s infinite; margin-bottom: var(--sp-2); }
+  @keyframes shine { to { background-position: -200% 0; } }
+
+  /* 弹层 */
+  .mask { position: absolute; inset: 0; z-index: 20; background: rgba(20,22,26,.45); display: flex; align-items: flex-end; }
+  .mask.center { align-items: center; justify-content: center; padding: 32px; }
+  .sheet { background: var(--card); width: 100%; border-radius: 16px 16px 0 0; padding: var(--sp-4); padding-bottom: calc(var(--sp-4) + env(safe-area-inset-bottom, 0px)); }
+  .sheet h3 { font-size: 16px; margin-bottom: var(--sp-3); text-align: center; }
+  .sheet .item { display: block; width: 100%; text-align: left; min-height: 48px; border: 0; background: none;
+                 font-size: 16px; padding: 12px 8px; border-bottom: 1px solid var(--line); cursor: pointer; color: var(--ink); }
+  .sheet .item:active { background: var(--bg); }
+  .sheet .item.danger { color: var(--danger); }
+  .dialog { background: var(--card); border-radius: 14px; padding: var(--sp-5); width: 300px; }
+  .dialog p { margin: var(--sp-3) 0 var(--sp-4); color: var(--ink2); }
+  [hidden] { display: none !important; }
+
+  /* toast */
+  .toast { position: absolute; left: 50%; bottom: 110px; transform: translateX(-50%); z-index: 50;
+           background: rgba(31,35,41,.92); color: #fff; font-size: 14px; padding: 10px 16px; border-radius: 8px; max-width: 320px; text-align: center; }
+
+  /* 工具专有 */
+  .score-wrap { display: flex; gap: var(--sp-3); }
+  .score-team { flex: 1; border-radius: var(--r); border: 1px solid var(--line); background: var(--card); padding: var(--sp-4); text-align: center; }
+  .score-team.lead { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(78,89,105,.25); }
+  .score-team .tn { font-size: 15px; font-weight: 600; color: var(--ink2); }
+  .score-num { font-size: 88px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .score-btns { display: flex; gap: var(--sp-2); margin-top: var(--sp-3); }
+  .score-btns .btn { flex: 1; font-size: 22px; }
+  .call-screen { position: absolute; inset: 0; z-index: 30; background: #23262b; color: #fff; display: flex;
+                 flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-3); }
+  .call-avatar { width: 96px; height: 96px; border-radius: 50%; background: #4e5969; display: flex; align-items: center;
+                 justify-content: center; font-size: 40px; }
+  .call-screen.ring .call-avatar { animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 18px rgba(255,255,255,.08); } }
+  .call-name { font-size: 26px; font-weight: 600; }
+  .call-num { color: #9aa1ab; font-size: 15px; }
+  .call-btns { display: flex; gap: 56px; margin-top: 40px; }
+  .call-btn { width: 68px; height: 68px; border-radius: 50%; border: 0; font-size: 30px; cursor: pointer; color: #fff; }
+  .call-btn.ok { background: #2b7a4b; }
+  .call-btn.no { background: #b42318; }
+  .call-btn small { display: block; font-size: 12px; margin-top: 2px; }
+  .diff-line { font-family: ui-monospace, Consolas, monospace; font-size: 13px; padding: 2px 8px; border-radius: 4px; white-space: pre-wrap; word-break: break-all; }
+  .diff-add { background: #eef5f0; color: #2b7a4b; }
+  .diff-del { background: #faf1ef; color: var(--danger); text-decoration: line-through; }
+  .diff-same { color: var(--ink2); }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+  .stat-cell { background: var(--bg); border-radius: var(--r-sm); padding: var(--sp-3); text-align: center; }
+  .stat-cell b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .stat-cell span { font-size: 12px; color: var(--ink3); }
+  .swatch { height: 64px; border-radius: var(--r-sm); border: 1px solid var(--line); margin: var(--sp-2) 0; }
+  .strength { height: 8px; border-radius: 4px; background: var(--bg); overflow: hidden; margin-top: var(--sp-2); }
+  .strength i { display: block; height: 100%; background: var(--brand); transition: width .2s; }
+</style>
+</head>
+<body data-chrome="tab">
+
+<div class="proto">
+  <b>百宝抽屉 · 原型</b>
+  <select id="jumpSel" aria-label="跳页">
+    <option>跳到页面</option>
+  </select>
+  <button data-action="演示空态">演示空</button>
+  <button data-action="演示加载">演示加载</button>
+  <button data-action="演示错误">演示错误</button>
+  <button data-action="演示提交中">演示提交中</button>
+  <button data-action="恢复正常">恢复正常</button>
+  <span class="tip">灰白原型：看流程与状态，配色定稿在下一阶段</span>
+</div>
+
+<div class="stage">
+<div class="phone">
+<div class="screen">
+
+  <!-- ═══════════ 抽屉首页 ═══════════ -->
+  <section class="page active" data-page="抽屉首页">
+    <header class="bar">
+      <div class="side"></div>
+      <h1>百宝抽屉</h1>
+      <div class="side r"><button class="iconbtn" data-action="打开设置菜单" aria-label="设置">⚙</button></div>
+    </header>
+    <div class="body">
+      <div class="zone-main" id="homeMain">
+        <div class="handle">
+          <b>抽屉 · <span id="favCount">0</span> 个工具</b>
+          <button class="btn" style="min-height:34px;padding:4px 10px;font-size:13px" data-action="打开整理抽屉">整理</button>
+          <button class="btn" style="min-height:34px;padding:4px 10px;font-size:13px" data-action="收起抽屉" id="foldBtn">收起</button>
+        </div>
+        <div id="favGrid" class="grid2"></div>
+        <div id="favStrip" class="strip" hidden></div>
+        <div id="recentWrap" hidden>
+          <div class="label">最近使用</div>
+          <div id="recentRow" class="strip"></div>
+        </div>
+        <button class="tool-row" style="justify-content:center;margin-top:var(--sp-3)" data-action="切到工具库">
+          <span class="ic">🧰</span><b>去工具库逛逛</b><span class="muted grow" style="text-align:right">12 个工具</span>
+        </button>
+      </div>
+
+      <div class="hint" data-state="empty" hidden>
+        <p style="font-size:32px">🗂</p>
+        <p>抽屉还空着</p>
+        <p class="muted">去工具库挑几个常用的收进来</p>
+        <p style="margin-top:12px"><button class="btn pri" data-action="切到工具库">去工具库</button></p>
+      </div>
+      <div data-state="loading" hidden>
+        <div class="skel"></div><div class="skel"></div><div class="skel"></div>
+        <p class="muted" style="text-align:center;margin-top:8px">正在打开抽屉</p>
+      </div>
+      <div class="banner" data-state="error" hidden style="border:1px solid #e3b7b0;background:#faf1ef;color:var(--danger);padding:16px;border-radius:var(--r)">
+        <b>收藏数据读不出来</b>
+        <p style="font-size:13px;margin:6px 0 12px">本机存储可能被清空或不可用，收藏没法加载。</p>
+        <button class="btn" data-action="恢复默认收藏">恢复默认收藏</button>
+      </div>
+    </div>
+
+    <!-- 设置菜单 -->
+    <div class="mask" id="mSettings" hidden>
+      <div class="sheet">
+        <h3>设置</h3>
+        <button class="item" data-action="打开导出备份">导出备份</button>
+        <button class="item" data-action="打开导入备份">导入备份</button>
+        <button class="item" data-action="打开关于">关于百宝抽屉</button>
+        <button class="item danger" data-action="恢复默认收藏">恢复默认收藏</button>
+        <button class="item" style="text-align:center;color:var(--ink3)" data-action="关闭弹层">取消</button>
+      </div>
+    </div>
+    <!-- 导出备份 -->
+    <div class="mask" id="mExport" hidden>
+      <div class="sheet">
+        <h3>导出备份</h3>
+        <div class="label">文件名</div>
+        <input class="input" id="exportName" value="百宝抽屉-收藏-2026-09-20.json">
+        <div data-state="submitting" hidden id="exporting" class="hint" style="margin-top:12px;text-align:center">正在导出</div>
+        <div class="row" style="margin-top:16px">
+          <button class="btn grow" data-action="关闭弹层">取消</button>
+          <button class="btn pri grow" data-action="确认导出备份">导出</button>
+        </div>
+      </div>
+    </div>
+    <!-- 导入备份 -->
+    <div class="mask" id="mImport" hidden>
+      <div class="sheet">
+        <h3>导入备份</h3>
+        <div class="label">粘贴导出的备份内容（JSON）</div>
+        <textarea class="input mono" id="importText" rows="5" placeholder='{"favs":["qrcode","timer"]}'></textarea>
+        <div class="row" style="margin-top:16px">
+          <button class="btn grow" data-action="关闭弹层">取消</button>
+          <button class="btn pri grow" data-action="确认导入备份">导入</button>
+        </div>
+      </div>
+    </div>
+    <!-- 关于 -->
+    <div class="mask" id="mAbout" hidden>
+      <div class="sheet">
+        <h3>关于百宝抽屉</h3>
+        <p style="text-align:center;font-size:15px">个人小工具抽屉 · v0.1 原型</p>
+        <p class="muted" style="text-align:center;margin:8px 0 16px">常用工具收藏即取，进工具即全屏专注<br>github.com/tangzheheshui/treasure-drawer</p>
+        <button class="btn block" data-action="关闭弹层">关闭</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 工具列表 ═══════════ -->
+  <section class="page" data-page="工具列表">
+    <header class="bar">
+      <div class="side"></div>
+      <h1>工具库</h1>
+      <div class="side r"></div>
+    </header>
+    <div class="body">
+      <div class="zone-main" id="toolsMain">
+        <div class="row" style="margin-bottom:var(--sp-3)">
+          <input class="input grow" id="searchInput" placeholder="搜索工具" oninput="renderTools()">
+          <button class="btn" data-action="清空搜索" style="min-height:44px">清空</button>
+        </div>
+        <div id="toolGroups"></div>
+      </div>
+      <div class="hint" data-state="empty" hidden>
+        <p style="font-size:32px">🔍</p>
+        <p id="searchEmptyText">没有找到匹配的工具</p>
+        <p style="margin-top:12px"><button class="btn" data-action="清空搜索">清空搜索</button></p>
+      </div>
+      <div data-state="loading" hidden>
+        <div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>
+        <p class="muted" style="text-align:center;margin-top:8px">正在打开工具库</p>
+      </div>
+      <div data-state="error" hidden>
+        <div style="border:1px solid #e3b7b0;background:#faf1ef;color:var(--danger);padding:16px;border-radius:var(--r)">
+          <b>本机存储不可用</b>
+          <p style="font-size:13px;margin:6px 0">可能开了隐私模式。工具都能用，但收藏暂时存不了。</p>
+        </div>
+        <div id="toolGroupsRo" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 整理抽屉 ═══════════ -->
+  <section class="page" data-page="整理抽屉">
+    <header class="bar">
+      <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
+      <h1>整理抽屉</h1>
+      <div class="side r"><button class="btn" style="min-height:34px;padding:4px 10px;font-size:13px" data-action="返回上一页">完成</button></div>
+    </header>
+    <div class="body">
+      <div class="zone-main" id="sortMain"><div id="sortList"></div></div>
+      <div class="hint" data-state="empty" hidden>
+        <p style="font-size:32px">🗂</p>
+        <p>抽屉空着，先去收几个工具</p>
+        <p style="margin-top:12px"><button class="btn pri" data-action="切到工具库">去工具库</button></p>
+      </div>
+      <div class="mask center" id="mConfirmSort" hidden>
+        <div class="dialog">
+          <h3 id="confirmSortText">从抽屉移除「密码生成」？</h3>
+          <p class="muted">工具还在工具库里，随时能再收进来。</p>
+          <div class="row">
+            <button class="btn grow" data-action="关闭弹层">取消</button>
+            <button class="btn warn grow" data-action="确认执行">移除</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 二维码生成 ═══════════ -->
+  <section class="page" data-page="二维码生成">
+    <header class="bar">
+      <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
+      <h1>二维码生成</h1>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="qrcode">☆</button></div>
+    </header>
+    <div class="body">
+      <div class="card">
+        <div class="label">内容（文字或链接）</div>
+        <textarea class="input" id="qrText" rows="3" placeholder="https://example.com" oninput="qrOnInput()"></textarea>
+        <div class="hint" data-state="disabled" hidden id="qrDisabled">输入内容后才能生成</div>
+        <div class="hint" data-state="error" hidden id="qrTooLong">内容超过演示上限 1000 字，真二维码上限约 2953 字节，工程阶段按真编码校验</div>
+        <div class="label">尺寸</div>
+        <div class="seg" id="qrSizeSeg">
+          <button data-action="生成二维码" data-size="220">小</button>
+          <button data-action="生成二维码" data-size="300" class="on">中</button>
+          <button data-action="生成二维码" data-size="358">大</button>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn grow" data-action="填入示例" data-tool="qrcode">填入示例</button>
+          <button class="btn grow" data-action="清空输入" data-tool="qrcode">清空</button>
+          <button class="btn pri grow" data-action="生成二维码" id="qrGenBtn">生成二维码</button>
+        </div>
+      </div>
+      <div class="card" id="qrResult" hidden style="text-align:center">
+        <canvas id="qrCanvas" width="300" height="300" style="width:100%;max-width:300px"></canvas>
+        <p class="muted" style="margin-top:8px">示意图，工程阶段接真编码库</p>
+        <button class="btn block" style="margin-top:8px" data-action="保存图片">保存图片</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 密码生成 ═══════════ -->
+  <section class="page" data-page="密码生成">
+    <header class="bar">
+      <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
+      <h1>密码生成</h1>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="password">☆</button></div>
+    </header>
+    <div class="body">
+      <div class="card">
+        <div class="label">长度 <b id="pwdLenVal">16</b> 位</div>
+        <input type="range" id="pwdLen" min="8" max="64" value="16" style="width:100%" oninput="pwdOnLen()">
+        <div class="row" style="flex-wrap:wrap;gap:12px;margin-top:8px">
+          <label><input type="checkbox" id="pwdUpper" checked> 大写 A-Z</label>
+          <label><input type="checkbox" id="pwdLower" checked> 小写 a-z</label>
+          <label><input type="checkbox" id="pwdDigit" checked> 数字 0-9</label>
+          <label><input type="checkbox" id="pwdSymbol"> 符号 !@#</label>
+        </div>
+        <div class="hint" data-state="disabled" hidden id="pwdDisabled">至少选一种字符才能生成</div>
+        <button class="btn pri block" style="margin-top:12px" data-action="生成密码" id="pwdGenBtn">生成密码</button>
+      </div>
+      <div class="card" id="pwdResultCard" hidden>
+        <div class="mono" id="pwdText" style="font-size:18px;word-break:break-all;line-height:1.6"></div>
+        <div class="hint" data-state="overflow" hidden id="pwdOverflow">长度超过 48 位，已换行显示</div>
+        <div class="label">强度</div>
+        <div class="strength"><i id="pwdStrengthBar" style="width:60%"></i></div>
+        <p class="muted" id="pwdStrengthText" style="margin-top:4px">中</p>
+        <button class="btn block" style="margin-top:8px" data-action="复制结果" data-copy-id="pwdText">复制密码</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 单位换算 ═══════════ -->
+  <section class="page" data-page="单位换算">
+    <header class="bar">
+      <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
+      <h1>单位换算</h1>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="convert">☆</button></div>
+    </header>
+    <div class="body">
+      <div class="card">
+        <div class="seg" id="convSeg">
+          <button class="on" data-action="换算分组" data-group="len">长度</button>
+          <button data-action="换算分组" data-group="weight">重量</button>
+          <button data-action="换算分组" data-group="temp">温度</button>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <input class="input grow" id="convA" inputmode="decimal" value="1.62" oninput="convert()">
+          <select class="input" id="convAu" style="width:110px" onchange="convert()"></select>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <input class="input grow" id="convB" inputmode="decimal" oninput="convert(true)">
+          <select class="input" id="convBu" style="width:110px" onchange="convert()"></select>
+        </div>
+        <div class="hint" data-state="error" hidden id="convError">输入的不是数字，换一个试试（示例：1.62）</div>
+        <p class="muted" style="margin-top:8px" id="convFormula"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 颜色转换 ═══════════ -->
+  <section class="page" data-page="颜色转换">
+    <header class="bar">
+      <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
+      <h1>颜色转换</h1>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="color">☆</button></div>
+    </header>
+    <div class="body">
+      <div class="card">
+        <div class="label">输入 HEX 或 rgb()，回车转换</div>
+        <input class="input mono" id="colorIn" value="#4F46E5" oninput="convertColor()">
+        <div class="hint" data-state="error" hidden id="colorError">识别不了这个颜色值，试试 #4F46E5 或 rgb(79, 70, 229)</div>
+        <div class="swatch" id="colorSwatch" style="background:#4F46E5"></div>
+        <div id="colorRows"></div>
+        <button class="btn block" style="margin-top:4px" data-action="填入示例" data-tool="color">填入示例</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 擦图 ═══════════ -->
+  <section class="page" data-page="擦图">
+    <header class="bar">
+      <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
+      <h1>擦图</h1>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="eraser">☆</button></div>
+    </header>
+    <div class="body">
+      <div class="hint" data-state="empty" hidden id="eraserEmpty">
+        <p style="font-size:32px">🧽</p>
+        <p>选一张示例图开始涂抹</p>
+        <p class="muted">涂过的地方就被抹掉了</p>
+        <p style="margin-top:12px"><button class="btn pri" data-action="选示例图">选示例图</button></p>
+      </div>
+      <div class="card" id="eraserWork" hidden>
+        <canvas id="eraserCanvas" width="350" height="240" style="width:100%;border-radius:var(--r-sm);touch-action:none"></canvas>
+        <div class="label">笔刷粗细</div>
+        <div class="seg">
+          <button data-action="换笔刷" data-brush="12">细</button>
+          <button data-action="换笔刷" data-brush="26" class="on">中</button>
+          <button data-action="换笔刷" data-brush="44">粗</button>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn grow" data-action="换一张">换一张</button>
+          <button class="btn grow" data-action="保存图片" data-tool="eraser">保存图片</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 字数统计 ═══════════ -->
+  <section class="page" data-page="字数统计">
+    <header class="bar">
+      <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
+      <h1>字数统计</h1>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="count">☆</button></div>
+    </header>
+    <div class="body">
+      <textarea class="input" id="countText" rows="7" placeholder="粘贴或输入文本" oninput="renderCount()"></textarea>
+      <div class="hint" data-state="empty" hidden id="countEmpty" style="margin-top:12px">粘贴文本后这里会实时统计</div>
+      <div class="card" id="countCard" style="margin-top:12px">
+        <div class="stat-grid">
+          <div class="stat-cell"><b id="stChars">0</b><span>字符</span></div>
+          <div class="stat-cell"><b id="stHan">0</b><span>汉字</span></div>
+          <div class="stat-cell"><b id="stWords">0</b><span>英文词</span></div>
+          <div class="stat-cell"><b id="stParas">0</b><span>段落</span></div>
+          <div class="stat-cell"><b id="stLines">0</b><span>行</span></div>
+          <div class="stat-cell"><b id="stNoSpace">0</b><span>不含空白</span></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn grow" data-action="填入示例" data-tool="count">填入示例</button>
+          <button class="btn grow" data-action="清空输入" data-tool="count">清空</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 文本对比 ═══════════ -->
+  <section class="page" data-page="文本对比">
+    <header class="bar">
+      <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
+      <h1>文本对比</h1>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="diff">☆</button></div>
+    </header>
+    <div class="body">
+      <div class="row">
+        <textarea class="input grow mono" id="diffA" rows="6" placeholder="原文本"></textarea>
+        <textarea class="input grow mono" id="diffB" rows="6" placeholder="新文本"></textarea>
+      </div>
+      <div class="hint" data-state="empty" hidden id="diffEmpty" style="margin-top:12px">两边都贴上文本再对比</div>
+      <div class="hint" data-state="overflow" hidden id="diffOverflow">超过 500 行，只对比前 500 行</div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn grow" data-action="填入示例" data-tool="diff">填入示例</button>
+        <button class="btn grow" data-action="交换两栏">交换两栏</button>
+        <button class="btn pri grow" data-action="对比文本">对比</button>
+      </div>
+      <div class="card" id="diffResult" hidden style="margin-top:12px"></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 倒计时番茄钟 ═══════════ -->
+  <section class="page" data-page="倒计时番茄钟">
+    <header class="bar">
+      <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
+      <h1>倒计时番茄钟</h1>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="timer">☆</button></div>
+    </header>
+    <div class="body">
+      <div class="card" style="text-align:center">
+        <div class="big-result" id="timerShow">25:00</div>
+        <p class="muted" id="timerState">专注 25 分钟</p>
+        <div class="label">预设（分钟）</div>
+        <div class="row">
+          <button class="btn grow" data-action="选时长" data-min="25">25</button>
+          <button class="btn grow" data-action="选时长" data-min="5">5</button>
+          <button class="btn grow" data-action="选时长" data-min="10">10</button>
+          <input class="input" id="timerCustom" style="width:90px" inputmode="numeric" placeholder="自定义" oninput="timerCustomInput()">
+        </div>
+        <div class="hint" data-state="disabled" hidden id="timerDisabled">先选一个时长再开始</div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn pri grow" data-action="开始计时" id="timerStart">开始</button>
+          <button class="btn grow" data-action="暂停计时" id="timerPause">暂停</button>
+          <button class="btn grow" data-action="重置计时">重置</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 随机抽签 ═══════════ -->
+  <section class="page" data-page="随机抽签">
+    <header class="bar">
+      <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
+      <h1>随机抽签</h1>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="random">☆</button></div>
+    </header>
+    <div class="body">
+      <div class="seg" id="randSeg">
+        <button class="on" data-action="切换抽签模式" data-mode="num">随机数</button>
+        <button data-action="切换抽签模式" data-mode="name">名单抽签</button>
+      </div>
+      <div class="card" id="randNumPane" style="margin-top:12px">
+        <div class="row">
+          <input class="input grow" id="randMin" inputmode="numeric" value="1" placeholder="最小">
+          <span class="muted">到</span>
+          <input class="input grow" id="randMax" inputmode="numeric" value="100" placeholder="最大">
+        </div>
+        <div class="big-result" id="randNumShow">?</div>
+        <button class="btn pri block" data-action="掷一次">掷一次</button>
+      </div>
+      <div class="card" id="randNamePane" hidden>
+        <div class="label">名单（每行一个）</div>
+        <textarea class="input" id="nameList" rows="5" placeholder="老王&#10;小赵&#10;阿芳" oninput="randOnInput()"></textarea>
+        <div class="hint" data-state="empty" hidden id="randEmpty" style="margin-top:8px">
+          先贴名单再抽
+          <button class="btn" style="margin-left:8px;min-height:32px;padding:4px 10px;font-size:13px" data-action="填入示例" data-tool="random">填入示例</button>
+        </div>
+        <div class="big-result" id="randNameShow">?</div>
+        <p class="muted" id="randLeft" style="text-align:center"></p>
+        <div class="row" style="margin-top:8px">
+          <button class="btn pri grow" data-action="抽一个" id="randDrawBtn">抽一个</button>
+          <button class="btn grow" data-action="重置抽签">重新开始</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 记分牌 ═══════════ -->
+  <section class="page" data-page="记分牌">
+    <header class="bar">
+      <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
+      <h1>记分牌</h1>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="scoreboard">☆</button></div>
+    </header>
+    <div class="body">
+      <div class="score-wrap">
+        <div class="score-team" id="teamRed">
+          <div class="tn">红队</div>
+          <div class="score-num" id="scoreRed">0</div>
+          <div class="score-btns">
+            <button class="btn" data-action="减分" data-team="red">−</button>
+            <button class="btn pri" data-action="加分" data-team="red">＋</button>
+          </div>
+        </div>
+        <div class="score-team" id="teamBlue">
+          <div class="tn">蓝队</div>
+          <div class="score-num" id="scoreBlue">0</div>
+          <div class="score-btns">
+            <button class="btn" data-action="减分" data-team="blue">−</button>
+            <button class="btn pri" data-action="加分" data-team="blue">＋</button>
+          </div>
+        </div>
+      </div>
+      <button class="btn block" style="margin-top:16px" data-action="打开通用确认" data-scene="score">重置比分</button>
+      <p class="muted" style="text-align:center;margin-top:12px">全屏大数字，正反两面都能看清</p>
+      <div class="mask center" id="mConfirmScore" hidden>
+        <div class="dialog">
+          <h3>重置比分？</h3>
+          <p>红蓝两队都会清零。</p>
+          <div class="row">
+            <button class="btn grow" data-action="关闭弹层">取消</button>
+            <button class="btn warn grow" data-action="确认执行">重置</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 模拟来电 ═══════════ -->
+  <section class="page" data-page="模拟来电">
+    <header class="bar">
+      <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
+      <h1>模拟来电</h1>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="fakecall">☆</button></div>
+    </header>
+    <div class="body">
+      <div class="card">
+        <div class="label">来电人</div>
+        <input class="input" id="callName" value="妈妈">
+        <div class="label">号码</div>
+        <input class="input" id="callNum" value="13800138000">
+        <div class="label">几秒后响铃</div>
+        <div class="seg" id="callDelaySeg">
+          <button class="on" data-action="选延迟" data-sec="3">3 秒</button>
+          <button data-action="选延迟" data-sec="5">5 秒</button>
+          <button data-action="选延迟" data-sec="10">10 秒</button>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn grow" data-action="填入示例" data-tool="fakecall">换个来电人</button>
+          <button class="btn pri grow" data-action="开始响铃">开始响铃</button>
+        </div>
+        <p class="muted" style="margin-top:8px">响铃界面是全屏的，接听后会显示通话时长</p>
+      </div>
+      <div class="call-screen ring" id="callRing" hidden>
+        <p class="muted" style="color:#c8ccd2">正在模拟来电</p>
+        <div class="call-avatar" id="callAvatar">妈</div>
+        <div class="call-name" id="callRingName">妈妈</div>
+        <div class="call-num" id="callRingNum">13800138000</div>
+        <div class="call-btns">
+          <button class="call-btn no" data-action="挂断">✕<small>挂断</small></button>
+          <button class="call-btn ok" data-action="接听">✓<small>接听</small></button>
+        </div>
+      </div>
+      <div class="call-screen" id="callActive" hidden>
+        <div class="call-avatar" id="callAvatar2">妈</div>
+        <div class="call-name" id="callActiveName">妈妈</div>
+        <div class="call-num big-result" id="callDur">00:00</div>
+        <div class="call-btns">
+          <button class="call-btn no" data-action="挂断">✕<small>挂断</small></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 尺子 ═══════════ -->
+  <section class="page" data-page="尺子">
+    <header class="bar">
+      <div class="side"><button class="iconbtn" data-action="返回上一页">←</button></div>
+      <h1>尺子</h1>
+      <div class="side r"><button class="iconbtn" data-action="切换收藏" data-tool="ruler">☆</button></div>
+    </header>
+    <div class="body">
+      <div class="card">
+        <canvas id="rulerCanvas" width="358" height="96" style="width:100%"></canvas>
+        <div class="label">校准：让刻度与实物对齐（1 厘米 = <b id="rulerPpi">37.8</b> 像素）</div>
+        <input type="range" id="rulerCal" min="30" max="50" step="0.1" value="37.8" style="width:100%" oninput="drawRuler()">
+        <p class="muted">拿一张银行卡长边（85.6 毫米）贴屏幕，拖到刻度重合；不同设备像素密度不同，校准一次就准</p>
+        <button class="btn block" style="margin-top:8px" data-action="重置校准">重置校准</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 底部页签 -->
+  <nav class="tabbar">
+    <button id="tabHome" class="on" data-action="切到抽屉"><span class="ti">🗂</span>抽屉</button>
+    <button id="tabTools" data-action="切到工具库"><span class="ti">🧰</span>工具库</button>
+  </nav>
+
+  <div class="toast" id="toast" hidden></div>
+</div>
+</div>
+</div>
+
+<script>
+'use strict'
+/* ═══════════ 数据 ═══════════ */
+const TOOLS = [
+  { id: 'qrcode',     name: '二维码生成',   group: '日常', icon: '🔳', desc: '文字或链接变二维码' },
+  { id: 'password',   name: '密码生成',     group: '日常', icon: '🔑', desc: '按长度与字符类型出强密码' },
+  { id: 'convert',    name: '单位换算',     group: '日常', icon: '⚖️', desc: '长度重量温度互算' },
+  { id: 'color',      name: '颜色转换',     group: '日常', icon: '🎨', desc: 'HEX 与 RGB 与 HSL 互转' },
+  { id: 'eraser',     name: '擦图',         group: '日常', icon: '🧽', desc: '涂抹抹掉图片局部' },
+  { id: 'count',      name: '字数统计',     group: '效率', icon: '🔢', desc: '字符汉字词段行' },
+  { id: 'diff',       name: '文本对比',     group: '效率', icon: '🔀', desc: '两段文本行级差异' },
+  { id: 'timer',      name: '倒计时番茄钟', group: '效率', icon: '⏱️', desc: '专注计时与休息' },
+  { id: 'random',     name: '随机抽签',     group: '效率', icon: '🎲', desc: '随机数与名单抽签' },
+  { id: 'scoreboard', name: '记分牌',       group: '现场', icon: '🏆', desc: '红蓝两队计分' },
+  { id: 'fakecall',   name: '模拟来电',     group: '现场', icon: '📞', desc: '预约一通仿来电' },
+  { id: 'ruler',      name: '尺子',         group: '现场', icon: '📏', desc: '屏幕刻度可校准' },
+]
+const byId = id => TOOLS.find(t => t.id === id)
+const $ = s => document.querySelector(s)
+const pageEl = name => [...document.querySelectorAll('.page')].find(p => p.dataset.page === name)
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem('td.' + k)) ?? d } catch { return d } },
+  set(k, v) { try { localStorage.setItem('td.' + k, JSON.stringify(v)) } catch { /* 隐私模式静默 */ } },
+}
+let favs = store.get('favs', ['timer', 'qrcode', 'password', 'ruler'])
+let recents = store.get('recents', ['timer', 'qrcode'])
+let fold = false
+const demo = { 抽屉首页: null, 工具列表: null }
+
+/* ═══════════ 导航 ═══════════ */
+const TABS = ['抽屉首页', '工具列表']
+let stack = ['抽屉首页']
+function chromeOf(name) { return TABS.includes(name) ? 'tab' : 'focus' }
+function show(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.dataset.page === name))
+  document.body.dataset.chrome = chromeOf(name)
+  $('#tabHome').classList.toggle('on', name === '抽屉首页')
+  $('#tabTools').classList.toggle('on', name === '工具列表')
+  if (name === '抽屉首页') { renderHome(); leaveTimer() }
+  if (name === '工具列表') renderTools()
+  if (name === '整理抽屉') renderSort()
+  if (name === '尺子') drawRuler()
+  if (name === '倒计时番茄钟') timerRender()
+  if (name === '擦图') { $('#eraserEmpty').hidden = eraserOn; $('#eraserWork').hidden = !eraserOn }
+  if (name === '模拟来电') callLeave()
+  if (name !== '倒计时番茄钟') leaveTimer()
+  $('.screen').scrollTop = 0
+}
+function goTab(name) { stack = [name]; show(name) }
+function go(name) { stack.push(name); show(name) }
+function back() { if (stack.length > 1) stack.pop(); show(stack[stack.length - 1]) }
+function openTool(id) { go(byId(id).name); pushRecent(id); paintStar(id) }
+function pushRecent(id) { recents = [id, ...recents.filter(x => x !== id)].slice(0, 6); store.set('recents', recents) }
+
+/* ═══════════ 首页 ═══════════ */
+function setZones(pageName, state) {
+  const pg = pageEl(pageName)
+  pg.querySelector('.zone-main').hidden = state !== 'main'
+  pg.querySelectorAll('[data-state]').forEach(z => { z.hidden = z.dataset.state !== state })
+}
+function renderHome() {
+  const st = demo['抽屉首页']
+  if (st) { setZones('抽屉首页', st); return }
+  if (!favs.length) { setZones('抽屉首页', 'empty'); return }
+  setZones('抽屉首页', 'main')
+  $('#favCount').textContent = favs.length
+  $('#foldBtn').textContent = fold ? '展开' : '收起'
+  $('#foldBtn').dataset.action = fold ? '展开抽屉' : '收起抽屉'
+  $('#favGrid').hidden = fold
+  const grid = $('#favGrid'); grid.innerHTML = ''
+  if (!fold) favs.forEach(id => { const t = byId(id); grid.insertAdjacentHTML('beforeend',
+    `<button class="tool-card" data-action="打开工具页" data-tool="${id}"><span class="ic">${t.icon}</span><b>${t.name}</b><span>${t.desc}</span></button>`) })
+  const strip = $('#favStrip'); strip.hidden = !fold
+  strip.innerHTML = ''
+  if (fold) {
+    if (favs.length) {
+      favs.forEach(id => { const t = byId(id); strip.insertAdjacentHTML('beforeend',
+        `<button class="chip" data-action="打开工具页" data-tool="${id}"><span>${t.icon}</span>${t.name}</button>`) })
+    } else {
+      strip.innerHTML = '<span class="muted" style="padding:8px">抽屉还空着</span>'
+    }
+  }
+  const rw = $('#recentWrap'), rr = $('#recentRow')
+  rw.hidden = !fold || !recents.length
+  rr.innerHTML = ''
+  recents.forEach(id => { const t = byId(id); rr.insertAdjacentHTML('beforeend',
+    `<button class="chip" data-action="打开工具页" data-tool="${id}"><span>${t.icon}</span>${t.name}</button>`) })
+}
+function favToggle(id) {
+  const t = byId(id)
+  if (favs.includes(id)) { favs = favs.filter(x => x !== id); toast('已移出抽屉：' + t.name) }
+  else { favs.push(id); toast('已收进抽屉：' + t.name) }
+  store.set('favs', favs)
+  paintStar(id); renderHome(); renderTools(); renderSort()
+}
+function paintStar(id) {
+  const pg = pageEl(byId(id).name)
+  const star = pg && pg.querySelector('[data-action="切换收藏"]')
+  if (star) star.textContent = favs.includes(id) ? '★' : '☆'
+}
+
+/* ═══════════ 工具列表 ═══════════ */
+function renderTools() {
+  const st = demo['工具列表']
+  if (st) { setZones('工具列表', st); return }
+  const q = ($('#searchInput').value || '').trim().toLowerCase()
+  const hit = TOOLS.filter(t => !q || t.name.toLowerCase().includes(q) || t.desc.includes(q))
+  if (q && !hit.length) {
+    $('#searchEmptyText').textContent = '没有叫「' + $('#searchInput').value.trim() + '」的工具'
+    setZones('工具列表', 'empty'); return
+  }
+  setZones('工具列表', 'main')
+  const g = $('#toolGroups'); g.innerHTML = ''
+  ;['日常', '效率', '现场'].forEach(gr => {
+    const list = hit.filter(t => t.group === gr); if (!list.length) return
+    g.insertAdjacentHTML('beforeend', `<div class="label">${gr} · ${list.length} 个</div>`)
+    list.forEach(t => {
+      const inFav = favs.includes(t.id)
+      g.insertAdjacentHTML('beforeend',
+        `<div class="tool-row" data-action="打开工具页" data-tool="${t.id}">
+          <span class="ic">${t.icon}</span>
+          <span class="grow"><span class="nm">${t.name}</span><br><span class="ds">${t.desc}</span></span>
+          <button class="btn" style="min-height:34px;padding:4px 10px;font-size:13px;${inFav ? 'opacity:.55' : ''}"
+            data-action="${inFav ? '移出抽屉' : '添加到抽屉'}" data-tool="${t.id}">${inFav ? '已收藏' : '收进抽屉'}</button>
+        </div>`)
+    })
+  })
+}
+
+/* ═══════════ 整理抽屉 ═══════════ */
+function renderSort() {
+  const st = demo['抽屉首页']
+  if (!favs.length) { setZones('整理抽屉', 'empty'); $('#sortMain').hidden = true; return }
+  setZones('整理抽屉', 'main'); $('#sortMain').hidden = false
+  const l = $('#sortList'); l.innerHTML = ''
+  favs.forEach((id, i) => { const t = byId(id)
+    l.insertAdjacentHTML('beforeend',
+      `<div class="tool-row" style="cursor:default">
+        <span class="ic">${t.icon}</span>
+        <span class="grow"><span class="nm">${t.name}</span></span>
+        <button class="btn" data-action="上移收藏" data-tool="${id}" style="min-height:34px;padding:4px 10px">↑</button>
+        <button class="btn" data-action="下移收藏" data-tool="${id}" style="min-height:34px;padding:4px 10px">↓</button>
+        <button class="btn warn" data-action="打开通用确认" data-scene="sort" data-tool="${id}" style="min-height:34px;padding:4px 10px">移除</button>
+      </div>`)
+  })
+}
+function sortMove(id, dir) {
+  const i = favs.indexOf(id), j = i + dir
+  if (i < 0 || j < 0 || j >= favs.length) return
+  ;[favs[i], favs[j]] = [favs[j], favs[i]]
+  store.set('favs', favs); renderSort()
+}
+
+/* ═══════════ 通用确认 ═══════════ */
+let confirmFn = null
+function openConfirm(scene, id) {
+  if (scene === 'sort') {
+    $('#confirmSortText').textContent = '从抽屉移除「' + byId(id).name + '」？'
+    confirmFn = () => { favs = favs.filter(x => x !== id); store.set('favs', favs); renderSort(); renderHome(); toast('已移出抽屉') }
+    $('#mConfirmSort').hidden = false
+  }
+  if (scene === 'score') {
+    confirmFn = () => { scores.red = 0; scores.blue = 0; renderScore(); toast('比分已清零') }
+    $('#mConfirmScore').hidden = false
+  }
+}
+function closeMasks() {
+  document.querySelectorAll('.mask').forEach(m => { m.hidden = true })
+  $('#exporting').hidden = true
+  confirmFn = null
+}
+
+/* ═══════════ toast ═══════════ */
+let toastTimer = null
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.hidden = false
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true }, 1800)
+}
+function copyText(s) {
+  const done = () => toast('已复制')
+  if (navigator.clipboard) navigator.clipboard.writeText(s).then(done, done)
+  else done()
+}
+
+/* ═══════════ 二维码（确定性示意点阵） ═══════════ */
+let qrSize = 300
+function hash32(s) { let h = 2166136261; for (const c of s) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619) } return h >>> 0 }
+function rng32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296 } }
+function qrOnInput() {
+  const v = $('#qrText').value
+  const bad = v.length > 1000
+  $('#qrTooLong').hidden = !bad
+  $('#qrDisabled').hidden = !!v
+  $('#qrGenBtn').classList.toggle('off', !v || bad)
+}
+function drawQr(text, px) {
+  const cv = $('#qrCanvas'), n = 25, cell = px / n
+  cv.width = px; cv.height = px
+  const ctx = cv.getContext('2d'), rnd = rng32(hash32(text))
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, px, px); ctx.fillStyle = '#111'
+  const finder = (fx, fy) => { for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) {
+    const edge = x === 0 || y === 0 || x === 6 || y === 6, core = x >= 2 && x <= 4 && y >= 2 && y <= 4
+    if (edge || core) ctx.fillRect((fx + x) * cell, (fy + y) * cell, cell, cell) } }
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const inFinder = (x < 8 && y < 8) || (x > n - 9 && y < 8) || (x < 8 && y > n - 9)
+    if (!inFinder && rnd() > 0.52) ctx.fillRect(x * cell, y * cell, cell, cell)
+  }
+  finder(0, 0); finder(n - 7, 0); finder(0, n - 7)
+}
+function qrSave() { toast('已保存（演示，工程阶段写进相册）') }
+
+/* ═══════════ 密码生成 ═══════════ */
+function pwdOnLen() {
+  $('#pwdLenVal').textContent = $('#pwdLen').value
+  const any = ['pwdUpper', 'pwdLower', 'pwdDigit', 'pwdSymbol'].some(i => $('#' + i).checked)
+  $('#pwdDisabled').hidden = any
+  $('#pwdGenBtn').classList.toggle('off', !any)
+}
+function pwdGen() {
+  const len = +$('#pwdLen').value
+  const sets = []
+  if ($('#pwdUpper').checked) sets.push('ABCDEFGHJKLMNPQRSTUVWXYZ')
+  if ($('#pwdLower').checked) sets.push('abcdefghijkmnpqrstuvwxyz')
+  if ($('#pwdDigit').checked) sets.push('23456789')
+  if ($('#pwdSymbol').checked) sets.push('!@#$%^&*_-+=')
+  if (!sets.length) return
+  const all = sets.join('')
+  const buf = new Uint32Array(len); crypto.getRandomValues(buf)
+  let out = ''; for (let i = 0; i < len; i++) out += all[buf[i] % all.length]
+  $('#pwdResultCard').hidden = false
+  $('#pwdText').textContent = out
+  $('#pwdOverflow').hidden = len <= 48
+  const bits = Math.log2(all.length) * len
+  const [label, w] = bits < 40 ? ['弱，建议加长', 30] : bits < 70 ? ['中，日常够用', 65] : ['强，放心用', 100]
+  $('#pwdStrengthBar').style.width = w + '%'
+  $('#pwdStrengthText').textContent = label + '（约 ' + Math.round(bits) + ' 位熵）'
+}
+
+/* ═══════════ 单位换算 ═══════════ */
+const CONV = {
+  len:   { units: [['毫米', 0.001], ['厘米', 0.01], ['米', 1], ['公里', 1000], ['英寸', 0.0254], ['英尺', 0.3048], ['英里', 1609.344]], f: 1 },
+  weight:{ units: [['克', 0.001], ['公斤', 1], ['吨', 1000], ['磅', 0.45359237], ['盎司', 0.028349523]], f: 1 },
+  temp:  { units: [['摄氏度', 'C'], ['华氏度', 'F'], ['开尔文', 'K']] },
+}
+let convGroup = 'len'
+function convFillUnits() {
+  const us = CONV[convGroup].units
+  const opts = us.map((u, i) => `<option value="${i}">${u[0]}</option>`).join('')
+  $('#convAu').innerHTML = opts; $('#convBu').innerHTML = opts
+  $('#convBu').selectedIndex = Math.min(3, us.length - 1)
+  $('#convA').value = '1.62'; $('#convB').value = ''
+  convert()
+}
+function toBase(group, i, v) {
+  const u = CONV[group].units[i]
+  return group === 'temp' ? (u[1] === 'C' ? v : u[1] === 'F' ? (v - 32) * 5 / 9 : v - 273.15) : v * u[1]
+}
+function fromBase(group, i, b) {
+  const u = CONV[group].units[i]
+  return group === 'temp' ? (u[1] === 'C' ? b : u[1] === 'F' ? b * 9 / 5 + 32 : b + 273.15) : b / u[1]
+}
+function convert(reverse) {
+  const g = convGroup, a = $('#convA'), b = $('#convB')
+  const src = reverse ? b : a, dst = reverse ? a : b
+  const si = reverse ? +$('#convBu').value : +$('#convAu').value
+  const di = reverse ? +$('#convAu').value : +$('#convBu').value
+  const v = parseFloat(src.value)
+  if (src.value !== '' && isNaN(v)) { $('#convError').hidden = false; dst.value = ''; $('#convFormula').textContent = ''; return }
+  $('#convError').hidden = true
+  if (src.value === '') { dst.value = ''; $('#convFormula').textContent = ''; return }
+  const out = fromBase(g, di, toBase(g, si, v))
+  dst.value = Math.round(out * 1e6) / 1e6
+  $('#convFormula').textContent = CONV[g].units[si][0] + ' → ' + CONV[g].units[di][0]
+}
+
+/* ═══════════ 颜色转换 ═══════════ */
+function parseColor(s) {
+  s = s.trim().toLowerCase()
+  let m = s.match(/^#?([0-9a-f]{3})$/)
+  if (m) return m[1].split('').map(c => parseInt(c + c, 16))
+  m = s.match(/^#?([0-9a-f]{6})$/)
+  if (m) return [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16))
+  m = s.match(/^rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/)
+  if (m) return [+m[1], +m[2], +m[3]]
+  return null
+}
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2
+  if (mx === mn) return [0, 0, Math.round(l * 100)]
+  const d = mx - mn, h = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4
+  return [Math.round(h * 60), Math.round((l > .5 ? d / (2 - mx - mn) : d / (mx + mn)) * 100), Math.round(l * 100)]
+}
+function convertColor() {
+  const rgb = parseColor($('#colorIn').value)
+  $('#colorError').hidden = !!rgb
+  if (!rgb) { $('#colorRows').innerHTML = ''; return }
+  const [r, g, b] = rgb, hex = '#' + rgb.map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase()
+  const [h, s2, l] = rgbToHsl(r, g, b)
+  $('#colorSwatch').style.background = hex
+  const rows = [
+    ['HEX', hex], ['RGB', `rgb(${r}, ${g}, ${b})`], ['HSL', `hsl(${h}, ${s2}%, ${l}%)`],
+  ]
+  $('#colorRows').innerHTML = rows.map(([k, v]) =>
+    `<div class="row" style="margin-top:8px"><span class="muted" style="width:44px">${k}</span>
+     <code class="mono grow" id="cr${k}">${v}</code>
+     <button class="btn" style="min-height:34px;padding:4px 10px;font-size:13px" data-action="复制结果" data-copy-id="cr${k}">复制</button></div>`).join('')
+}
+
+/* ═══════════ 擦图 ═══════════ */
+let eraserOn = false, eraserVariant = 0, brush = 26, drawing = false
+function eraserEnter() { if (!eraserOn) return; /* 回页不重置 */ }
+function drawScene() {
+  const cv = $('#eraserCanvas'), ctx = cv.getContext('2d')
+  ctx.globalCompositeOperation = 'source-over'
+  const g = ctx.createLinearGradient(0, 0, 350, 240)
+  g.addColorStop(0, '#dfe7f2'); g.addColorStop(1, '#f3efe4')
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 350, 240)
+  ctx.fillStyle = '#8fa3b8'; ctx.beginPath(); ctx.arc(70 + eraserVariant * 30, 80, 42, 0, 7); ctx.fill()
+  ctx.fillStyle = '#c9b98a'; ctx.fillRect(200, 130, 110, 70)
+  ctx.fillStyle = '#4e5969'; ctx.font = '600 22px sans-serif'
+  ctx.fillText('示例图片 ' + '甲乙丙丁'[eraserVariant % 4], 84, 200)
+  ctx.font = '13px sans-serif'; ctx.fillStyle = '#7a828e'
+  ctx.fillText('把不需要的部分涂掉', 84, 40)
+}
+function eraserPick() {
+  eraserOn = true
+  $('#eraserEmpty').hidden = true; $('#eraserWork').hidden = false
+  drawScene()
+}
+function eraserPoint(e) {
+  const cv = $('#eraserCanvas'), r = cv.getBoundingClientRect()
+  const x = (e.clientX - r.left) * cv.width / r.width, y = (e.clientY - r.top) * cv.height / r.height
+  const ctx = cv.getContext('2d')
+  ctx.globalCompositeOperation = 'destination-out'
+  ctx.shadowBlur = brush / 2; ctx.shadowColor = '#000'
+  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x, y, brush / 2, 0, 7); ctx.fill()
+}
+function eraserInit() {
+  const cv = $('#eraserCanvas')
+  cv.addEventListener('pointerdown', e => { drawing = true; eraserPoint(e) })
+  cv.addEventListener('pointermove', e => { if (drawing) eraserPoint(e) })
+  addEventListener('pointerup', () => { drawing = false })
+}
+eraserInit()
+
+/* ═══════════ 字数统计 ═══════════ */
+function renderCount() {
+  const s = $('#countText').value
+  $('#countEmpty').hidden = !!s
+  $('#stChars').textContent = s.length
+  $('#stHan').textContent = (s.match(/[一-鿿]/g) || []).length
+  $('#stWords').textContent = (s.match(/[A-Za-z]+/g) || []).length
+  $('#stParas').textContent = s.split(/\n{2,}/).filter(x => x.trim()).length
+  $('#stLines').textContent = s === '' ? 0 : s.split('\n').length
+  $('#stNoSpace').textContent = s.replace(/\s/g, '').length
+}
+
+/* ═══════════ 文本对比（行级 LCS） ═══════════ */
+function renderDiff() {
+  const a = $('#diffA').value, b = $('#diffB').value
+  $('#diffEmpty').hidden = !!(a.trim() && b.trim())
+  if (!a.trim() || !b.trim()) { $('#diffResult').hidden = true; return }
+  let la = a.split('\n'), lb = b.split('\n')
+  const cut = la.length > 500 || lb.length > 500
+  $('#diffOverflow').hidden = !cut
+  la = la.slice(0, 500); lb = lb.slice(0, 500)
+  const n = la.length, m = lb.length
+  const dp = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1))
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
+    dp[i][j] = la[i] === lb[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1])
+  const out = []; let i = 0, j = 0
+  while (i < n && j < m) {
+    if (la[i] === lb[j]) { out.push(['same', la[i]]); i++; j++ }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push(['del', la[i]]); i++ }
+    else { out.push(['add', lb[j]]); j++ }
+  }
+  while (i < n) { out.push(['del', la[i++]]) }
+  while (j < m) { out.push(['add', lb[j++]]) }
+  const box = $('#diffResult'); box.hidden = false
+  box.innerHTML = out.map(([k, s]) =>
+    `<div class="diff-line diff-${k}">${k === 'add' ? '+ ' : k === 'del' ? '− ' : '  '}${s.replace(/</g, '&lt;')}</div>`).join('')
+}
+
+/* ═══════════ 倒计时番茄钟 ═══════════ */
+const timer = { total: 0, left: 0, endAt: 0, handle: null, running: false }
+function timerCustomInput() {
+  const v = parseInt($('#timerCustom').value, 10)
+  if (v > 0) timerPick(v, true)
+}
+function timerPick(min, fromCustom) {
+  leaveTimer()
+  timer.total = timer.left = min * 60
+  $('#timerDisabled').hidden = true
+  $('#timerStart').classList.remove('off')
+  $('#timerState').textContent = (min >= 25 ? '专注 ' : '休息 ') + min + ' 分钟'
+  timerRender()
+}
+function timerRender() {
+  const s = Math.max(0, Math.ceil(timer.left))
+  $('#timerShow').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0')
+}
+function timerStart() {
+  if (!timer.total || timer.running) return
+  timer.running = true; timer.endAt = Date.now() + timer.left * 1000
+  timer.handle = setInterval(() => {
+    timer.left = (timer.endAt - Date.now()) / 1000
+    if (timer.left <= 0) { leaveTimer(); timer.total = timer.left = 0; toast('时间到'); try { navigator.vibrate && navigator.vibrate(400) } catch { /* 无震动 */ } }
+    timerRender()
+  }, 250)
+}
+function leaveTimer() { if (timer.handle) clearInterval(timer.handle); timer.handle = null; timer.running = false }
+function timerPause() { if (timer.running) { leaveTimer(); timer.left = Math.max(0, (timer.endAt - Date.now()) / 1000); timerRender() } }
+function timerReset() { leaveTimer(); timer.left = timer.total; timerRender() }
+
+/* ═══════════ 随机抽签 ═══════════ */
+let randMode = 'num', drawn = []
+function randOnInput() {
+  const n = namePool().length
+  $('#randEmpty').hidden = !!n
+  $('#randDrawBtn').classList.toggle('off', !n)
+  randLeftText()
+}
+function namePool() { return $('#nameList').value.split('\n').map(s => s.trim()).filter(Boolean) }
+function randLeftText() {
+  const pool = namePool(), left = pool.filter(n => !drawn.includes(n))
+  $('#randLeft').textContent = pool.length ? '已抽 ' + drawn.length + ' / 共 ' + pool.length + '，剩 ' + left.length + ' 人' : ''
+}
+function randSwitch(mode) {
+  randMode = mode
+  $('#randNumPane').hidden = mode !== 'num'
+  $('#randNamePane').hidden = mode !== 'name'
+  randOnInput()
+}
+function drawOne() {
+  const left = namePool().filter(n => !drawn.includes(n))
+  if (!left.length) { toast('名单抽完了，点「重新开始」再来一轮'); return null }
+  const pick = left[Math.floor(Math.random() * left.length)]
+  drawn.push(pick); randLeftText(); return pick
+}
+
+/* ═══════════ 记分牌 ═══════════ */
+const scores = { red: 0, blue: 0 }
+function renderScore() {
+  $('#scoreRed').textContent = scores.red; $('#scoreBlue').textContent = scores.blue
+  $('#teamRed').classList.toggle('lead', scores.red > scores.blue)
+  $('#teamBlue').classList.toggle('lead', scores.blue > scores.red)
+}
+
+/* ═══════════ 模拟来电 ═══════════ */
+const call = { delay: 3, t1: null, t2: null, vib: null, start: 0 }
+function callSet(sec) { call.delay = sec }
+function callRingStart() {
+  callLeave()
+  const name = $('#callName').value.trim() || '未知来电'
+  const num = $('#callNum').value.trim()
+  $('#callRingName').textContent = name
+  $('#callRingNum').textContent = num
+  $('#callAvatar').textContent = $('#callAvatar2').textContent = name[0]
+  toast(call.delay + ' 秒后来电')
+  call.t1 = setTimeout(() => {
+    $('#callRing').hidden = false
+    call.vib = setInterval(() => { try { navigator.vibrate && navigator.vibrate([400, 200, 400]) } catch { /* 无震动 */ } }, 900)
+  }, call.delay * 1000)
+}
+function callAnswer() {
+  clearInterval(call.vib); try { navigator.vibrate && navigator.vibrate(0) } catch { /* 无震动 */ }
+  $('#callRing').hidden = true; $('#callActive').hidden = false
+  call.start = Date.now()
+  call.t2 = setInterval(() => {
+    const s = Math.floor((Date.now() - call.start) / 1000)
+    $('#callDur').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0')
+  }, 500)
+}
+function callLeave() {
+  clearTimeout(call.t1); clearInterval(call.vib); clearInterval(call.t2)
+  $('#callRing').hidden = true; $('#callActive').hidden = true
+}
+
+/* ═══════════ 尺子 ═══════════ */
+function drawRuler() {
+  const cv = $('#rulerCanvas'), ctx = cv.getContext('2d')
+  const ppcm = parseFloat($('#rulerCal').value)
+  $('#rulerPpi').textContent = ppcm.toFixed(1)
+  ctx.clearRect(0, 0, cv.width, cv.height)
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height)
+  ctx.strokeStyle = '#1f2329'; ctx.fillStyle = '#1f2329'
+  ctx.font = '11px sans-serif'; ctx.textBaseline = 'top'
+  const totalCm = Math.floor(cv.width / ppcm)
+  for (let cm = 0; cm <= totalCm; cm++) {
+    const x = Math.round(cm * ppcm) + .5
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cm % 5 === 0 ? 28 : 18); ctx.stroke()
+    if (cm % 2 === 0 && cm > 0) ctx.fillText(cm, x + 2, 32)
+    if (cm < totalCm) for (let mm = 1; mm < 10; mm++) {
+      const xm = Math.round((cm + mm / 10) * ppcm) + .5
+      ctx.beginPath(); ctx.moveTo(xm, 0); ctx.lineTo(xm, mm === 5 ? 12 : 8); ctx.stroke()
+    }
+  }
+}
+
+/* ═══════════ 填示例 / 清空 ═══════════ */
+const EXAMPLES = {
+  qrcode: () => { $('#qrText').value = 'https://github.com/tangzheheshui/treasure-drawer'; qrOnInput() },
+  count: () => { $('#countText').value = '百宝抽屉是一个小工具抽屉：常用工具收藏即取，进工具即全屏专注。\n\nYou can count characters, hanzi, words, paragraphs and lines here.\n\n第三段用来数段落。'; renderCount() },
+  diff: () => { $('#diffA').value = '百宝抽屉\n收纳常用工具\n抽屉可以收起\n三组分类\n纯本地存储'; $('#diffB').value = '百宝抽屉\n收纳常用小工具\n抽屉可以收起\n四个字分组\n纯本地存储\n支持备份导出'; renderDiff() },
+  color: () => { $('#colorIn').value = 'rgb(15, 118, 110)'; convertColor() },
+  random: () => { $('#nameList').value = '老王\n小赵\n阿芳\n大周\n老郑\n小林'; randOnInput() },
+  fakecall: () => { $('#callName').value = '快递上门'; $('#callNum').value = '10086'; },
+}
+function clearTool(id) {
+  if (id === 'qrcode') { $('#qrText').value = ''; qrOnInput(); $('#qrResult').hidden = true }
+  if (id === 'count') { $('#countText').value = ''; renderCount() }
+  if (id === 'diff') { $('#diffA').value = ''; $('#diffB').value = ''; $('#diffResult').hidden = true; $('#diffEmpty').hidden = false; $('#diffOverflow').hidden = true }
+}
+
+/* ═══════════ 演示开关 ═══════════ */
+function activeTabPage() {
+  const name = stack[stack.length - 1]
+  return TABS.includes(name) ? name : null
+}
+function setDemo(state) {
+  const pg = activeTabPage()
+  if (!pg) { toast('切到「抽屉」或「工具库」页再演示状态'); return }
+  demo[pg] = state === 'main' ? null : state
+  pg === '抽屉首页' ? renderHome() : renderTools()
+}
+
+/* ═══════════ 动作注册表（每个 data-action 的唯一去处） ═══════════ */
+const A = {
+  '切到抽屉': () => goTab('抽屉首页'),
+  '切到工具库': () => goTab('工具列表'),
+  '返回上一页': () => back(),
+  '打开工具页': b => openTool(b.dataset.tool),
+  '打开整理抽屉': () => go('整理抽屉'),
+  '收起抽屉': () => { fold = true; renderHome() },
+  '展开抽屉': () => { fold = false; renderHome() },
+  '打开设置菜单': () => { $('#mSettings').hidden = false },
+  '打开导出备份': () => { $('#mSettings').hidden = true; $('#mExport').hidden = false },
+  '打开导入备份': () => { $('#mSettings').hidden = true; $('#mImport').hidden = false },
+  '打开关于': () => { $('#mSettings').hidden = true; $('#mAbout').hidden = false },
+  '关闭弹层': () => closeMasks(),
+  '确认导出备份': () => {
+    $('#exporting').hidden = false
+    setTimeout(() => {
+      $('#exporting').hidden = true
+      closeMasks()
+      const favsJson = JSON.stringify({ app: 'treasure-drawer', date: '2026-09-20', favs })
+      try {
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(new Blob([favsJson], { type: 'application/json' }))
+        a.download = $('#exportName').value || '百宝抽屉-收藏.json'
+        a.click(); URL.revokeObjectURL(a.href)
+        toast('备份已导出')
+      } catch { toast('备份内容已生成（下载被浏览器拦了）') }
+    }, 700)
+  },
+  '确认导入备份': () => {
+    try {
+      const data = JSON.parse($('#importText').value)
+      if (!Array.isArray(data.favs)) throw new Error('bad')
+      favs = data.favs.filter(id => byId(id))
+      store.set('favs', favs)
+      closeMasks(); renderHome(); toast('导入成功，收 ' + favs.length + ' 个工具')
+    } catch { toast('格式不对：要完整粘贴导出的备份内容') }
+  },
+  '恢复默认收藏': () => {
+    favs = ['timer', 'qrcode', 'password', 'ruler']; store.set('favs', favs)
+    closeMasks(); renderHome(); toast('已恢复默认收藏 4 个')
+  },
+  '打开通用确认': b => openConfirm(b.dataset.scene, b.dataset.tool),
+  '确认执行': () => { const fn = confirmFn; closeMasks(); fn && fn() },
+  '演示空态': () => setDemo('empty'),
+  '演示加载': () => setDemo('loading'),
+  '演示错误': () => setDemo('error'),
+  '演示提交中': () => { goTab('抽屉首页'); $('#mExport').hidden = false; A['确认导出备份']() },
+  '恢复正常': () => setDemo('main'),
+  '添加到抽屉': b => { if (!favs.includes(b.dataset.tool)) favToggle(b.dataset.tool) },
+  '移出抽屉': b => favToggle(b.dataset.tool),
+  '清空搜索': () => { $('#searchInput').value = ''; renderTools() },
+  '上移收藏': b => sortMove(b.dataset.tool, -1),
+  '下移收藏': b => sortMove(b.dataset.tool, 1),
+  '复制结果': b => copyText($('#' + b.dataset.copyId).textContent),
+  '填入示例': b => EXAMPLES[b.dataset.tool] && EXAMPLES[b.dataset.tool](),
+  '清空输入': b => clearTool(b.dataset.tool),
+  '切换收藏': b => favToggle(b.dataset.tool),
+  '生成二维码': b => {
+    document.querySelectorAll('#qrSizeSeg button').forEach(x => x.classList.toggle('on', x === b))
+    qrSize = +b.dataset.size
+    const v = $('#qrText').value
+    if (!v || v.length > 1000) { qrOnInput(); return }
+    $('#qrResult').hidden = false; drawQr(v, qrSize)
+  },
+  '保存图片': () => qrSave(),
+  '生成密码': () => pwdGen(),
+  '换算分组': b => {
+    convGroup = b.dataset.group
+    document.querySelectorAll('#convSeg button').forEach(x => x.classList.toggle('on', x === b))
+    convFillUnits()
+  },
+  '对比文本': () => renderDiff(),
+  '交换两栏': () => {
+    const a = $('#diffA').value; $('#diffA').value = $('#diffB').value; $('#diffB').value = a
+    if (!$('#diffResult').hidden) renderDiff()
+  },
+  '选时长': b => timerPick(+b.dataset.min),
+  '开始计时': () => timerStart(),
+  '暂停计时': () => timerPause(),
+  '重置计时': () => timerReset(),
+  '切换抽签模式': b => randSwitch(b.dataset.mode),
+  '掷一次': () => {
+    const lo = parseInt($('#randMin').value, 10), hi = parseInt($('#randMax').value, 10)
+    if (isNaN(lo) || isNaN(hi) || lo > hi) { toast('范围要填两个数字，且最小不大于最大'); return }
+    $('#randNumShow').textContent = lo + Math.floor(Math.random() * (hi - lo + 1))
+  },
+  '抽一个': () => { const p = drawOne(); if (p !== null) $('#randNameShow').textContent = p },
+  '重置抽签': () => { drawn = []; randLeftText(); $('#randNameShow').textContent = '?'; toast('新一轮开始') },
+  '加分': b => { scores[b.dataset.team]++; renderScore() },
+  '减分': b => { scores[b.dataset.team] = Math.max(0, scores[b.dataset.team] - 1); renderScore() },
+  '选延迟': b => {
+    callSet(+b.dataset.sec)
+    document.querySelectorAll('#callDelaySeg button').forEach(x => x.classList.toggle('on', x === b))
+  },
+  '开始响铃': () => callRingStart(),
+  '接听': () => callAnswer(),
+  '挂断': () => { callLeave(); toast('已挂断') },
+  '选示例图': () => eraserPick(),
+  '换一张': () => { eraserVariant++; drawScene() },
+  '换笔刷': b => {
+    brush = +b.dataset.brush
+    b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b))
+  },
+  '重置校准': () => { $('#rulerCal').value = 37.8; drawRuler() },
+}
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action]')
+  if (!el) return
+  if (el.classList.contains('off')) return
+  const fn = A[el.dataset.action]
+  if (!fn) return
+  if (el.dataset.tool && byId(el.dataset.tool)) paintStar(el.dataset.tool)
+  fn(el, e)
+})
+
+/* ═══════════ 启动 ═══════════ */
+;(function init() {
+  const sel = $('#jumpSel')
+  ;[...document.querySelectorAll('[data-page]')].forEach(pg => {
+    const o = document.createElement('option'); o.textContent = pg.dataset.page; sel.appendChild(o)
+  })
+  sel.onchange = () => {
+    const name = sel.value
+    if (TABS.includes(name)) goTab(name)
+    else if (name === '整理抽屉') go('整理抽屉')
+    else { openTool(byId(TOOLS.find(t => t.name === name).id).id) }
+    sel.selectedIndex = 0
+  }
+  TOOLS.forEach(t => paintStar(t.id))
+  convFillUnits(); convertColor(); renderCount(); renderHome(); renderTools(); drawRuler(); randOnInput(); qrOnInput()
+  $('#diffEmpty').hidden = false
+  $('#timerDisabled').hidden = false
+  $('#timerStart').classList.add('off')
+})()
+</script>
+</body>
+</html>
