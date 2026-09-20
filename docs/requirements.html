@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>需求（方向盘）· 百宝抽屉</title>
+<style>
+  :root { --ink:#1f2329; --mut:#6b7280; --line:#e5e7eb; --soft:#f6f7f9; --ok:#0f766e; }
+  * { box-sizing:border-box; }
+  body { margin:0 auto; max-width:760px; padding:24px 20px 64px; font:16px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif; color:var(--ink); background:#fff; }
+  h1 { font-size:24px; margin:0 0 8px; }
+  h2 { font-size:19px; margin:36px 0 10px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+  .lead { font-size:17px; color:var(--ink); background:var(--soft); border-radius:8px; padding:14px 16px; margin:12px 0; }
+  .note { font-size:13px; color:var(--mut); margin:10px 0; }
+  ul { margin:8px 0; padding-left:22px; }
+  li { margin:5px 0; }
+  .why { color:var(--mut); }
+  input[type=checkbox] { accent-color:var(--ok); margin-right:2px; }
+  code { background:var(--soft); border-radius:4px; padding:1px 6px; font-size:14px; }
+</style>
+</head>
+<body>
+
+<h1>需求（方向盘）· 百宝抽屉</h1>
+<p class="lead">给日常与现场场景用的个人小工具抽屉：常用工具收藏即取，进工具即全屏专注。手机优先，Web 与手机同一应用，数据只存在本机。</p>
+<p class="note">本文件只写「做什么 / 不做什么」，是方向盘；交互与页面的细节在 <code>ai/notes.md</code>、<code>ai/flow.md</code>，数据与选型在 <code>ai/spec.md</code>、<code>ai/brief.md</code>。</p>
+
+<h2>MVP（做完打勾）</h2>
+<ul>
+  <li><input type="checkbox"> 抽屉收藏列表：收起与展开</li>
+  <li><input type="checkbox"> 收藏整理：排序与移除</li>
+  <li><input type="checkbox"> 从工具库把工具收进抽屉</li>
+  <li><input type="checkbox"> 工具库浏览：日常 / 效率 / 现场 三组分组与搜索</li>
+  <li><input type="checkbox"> 工具专注模式：进入工具后全屏极简，只留返回与收藏切换</li>
+  <li><input type="checkbox"> 收藏数据本地保存（换设备不跟随）</li>
+  <li><input type="checkbox"> 收藏备份的导出与导入</li>
+  <li><input type="checkbox"> 工具：二维码生成</li>
+  <li><input type="checkbox"> 工具：强密码生成</li>
+  <li><input type="checkbox"> 工具：单位换算（长度 / 重量 / 温度）</li>
+  <li><input type="checkbox"> 工具：颜色值互转（HEX / RGB / HSL）</li>
+  <li><input type="checkbox"> 工具：擦图（抹除图片里不需要的部分）</li>
+  <li><input type="checkbox"> 工具：字数统计</li>
+  <li><input type="checkbox"> 工具：文本差异对比</li>
+  <li><input type="checkbox"> 工具：倒计时与番茄钟</li>
+  <li><input type="checkbox"> 工具：随机数与名单抽签</li>
+  <li><input type="checkbox"> 工具：记分牌（红蓝两队计分）</li>
+  <li><input type="checkbox"> 工具：模拟来电</li>
+  <li><input type="checkbox"> 工具：屏幕尺子</li>
+</ul>
+
+<h2>明确不做（本版不做，含理由）</h2>
+<ul>
+  <li>自定义网址条目 <span class="why">（首批只收内置工具，保证工具库质量；扩展池再议）</span></li>
+  <li>账号登录与云同步 <span class="why">（纯本地定位，免服务器免隐私负担；云同步在扩展池，接已有 PocketBase）</span></li>
+  <li>原生 App 套壳 <span class="why">（纯 Web 先行验证产品，套壳进扩展池）</span></li>
+  <li>广告与内购 <span class="why">（个人自用工具）</span></li>
+  <li>使用行为统计与上报 <span class="why">（本地工具不做行为收集）</span></li>
+</ul>
+
+<h2>扩展池（先记着，本版不做）</h2>
+<ul>
+  <li>云同步（复用 <code>auth.tangzheheshui.cn</code> 的 PocketBase）</li>
+  <li>自定义网址条目</li>
+  <li>Capacitor 套壳</li>
+  <li>桌面宽屏专属形态</li>
+  <li>更多内置工具（想到即加进工具库）</li>
+</ul>
+
+<h2>核心用户路径</h2>
+<p>打开应用 → 抽屉里选常用工具进入全屏专注使用 → 工具库里发现新工具就收进抽屉。</p>
+
+</body>
+</html>
