@@ -60,6 +60,9 @@ try {
   await page.locator('.adminbar button', { hasText: '统计' }).click();
   await page.waitForFunction(() => document.body.textContent.includes('订单数1'), { timeout: 5000 });
   ok('今日统计出现归档订单（已收齐）', (await page.textContent('.page')).includes('已收齐'));
+  const statText = await page.textContent('.page');
+  ok('今日概览含客单价/毛利/库存结余', statText.includes('客单价') && statText.includes('今日毛利') && statText.includes('库存结余'));
+  ok('菜品排行含畅销与滞销', statText.includes('畅销') && statText.includes('卖不动'));
   await page.locator('.adminbar button', { hasText: '库存' }).click();
   await page.waitForFunction(() => document.body.textContent.includes('库存价值'), { timeout: 5000 });
   ok('库存页出现（原料/价值/流水）', (await page.locator('.mrow, .row').count()) >= 1);

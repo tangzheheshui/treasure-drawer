@@ -13,13 +13,14 @@ export default function MenuPage({ db, update }) {
   const save = () => {
     const name = (edit.name || '').trim();
     const price = Math.max(0, Math.round(Number(edit.price) * 100) / 100);
+    const cost = edit.cost === '' || edit.cost === undefined || edit.cost === null ? 0 : Math.max(0, Number(edit.cost) || 0);
     if (!name || Number.isNaN(price)) return;
     update((d) => {
       if (edit.id) {
         const it = d.dishes.find((x) => x.id === edit.id);
-        Object.assign(it, { name, price, soldOut: !!edit.soldOut });
+        Object.assign(it, { name, price, cost, soldOut: !!edit.soldOut });
       } else {
-        d.dishes.push({ id: uid(), catId: edit.catId, name, price, soldOut: false });
+        d.dishes.push({ id: uid(), catId: edit.catId, name, price, cost, soldOut: false });
       }
     });
     setEdit(null);
@@ -133,6 +134,8 @@ export default function MenuPage({ db, update }) {
             <input className="f" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
             <div className="label">价格（元）</div>
             <input className="f" type="number" inputMode="decimal" value={edit.price} onChange={(e) => setEdit({ ...edit, price: e.target.value })} />
+            <div className="label">成本价（元，选填，用于毛利统计）</div>
+            <input className="f" type="number" inputMode="decimal" value={edit.cost ?? ''} onChange={(e) => setEdit({ ...edit, cost: e.target.value })} placeholder="不填则不计成本" />
             <div className="sub" style={{ marginTop: 8 }}>售罄/上架用列表里的一键开关更快，不用进这里。</div>
             <div className="mfoot">
               {edit.id && <button className="btn danger" onClick={() => ask(`删除「${edit.name}」？已下的单不受影响。`, () => { update((d) => { d.dishes = d.dishes.filter((x) => x.id !== edit.id); }); setEdit(null); })}>删除</button>}

@@ -106,6 +106,12 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; 
 .adminbar button.on { background: #e8eaee; color: var(--brand); font-weight: 700; }
 .nav .act.ghost { background: transparent; border: 1px solid #ffffff55; }
 
+/* 统计瓦片 */
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.tile { background: #f7f8fa; border-radius: 10px; padding: 10px; }
+.tile b { font-size: 17px; }
+.tile .sub { font-size: 12px; }
+
 /* 订单分笔 */
 .bdone { background: #e2f2e8; color: var(--ok); }
 .fold-arrow { color: var(--sub); font-size: 13px; }

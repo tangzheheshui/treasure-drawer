@@ -1,7 +1,7 @@
 // PocketBase 联机适配器：登录 → 店铺记录 → 发布菜单 → 实时收单/收呼叫。
 // 纯本地功能不依赖这里；所有请求失败都静默降级（摊主端离线照常记单）。
 import PocketBase from 'pocketbase';
-import { mutate, getDB, activeOrder, submitOrder, callTable, answerCall, sayItemsText } from './store.js';
+import { mutate, getDB, subscribe, activeOrder, submitOrder, callTable, answerCall, sayItemsText, unservedCount } from './store.js';
 import { say } from './voice.js';
 
 let pb = null;
@@ -38,6 +38,15 @@ export async function ensureShop(db) {
   return rec;
 }
 
+// 每桌出餐快照：tableNo -> 未出份数（发布上云，顾客 H5 实时看出餐进度）
+export function servedSnapshot(db) {
+  const out = {};
+  db.orders.filter((o) => o.status === 'active').forEach((o) => {
+    out[o.tableNo] = unservedCount(o);
+  });
+  return out;
+}
+
 export async function publishMenu(db) {
   if (!isOnline(db)) return;
   const c = getClient(db.shop.pbBase);
@@ -45,6 +54,7 @@ export async function publishMenu(db) {
     await c.collection('stall_shops').update(db.shop.pbId, {
       name: db.shop.name, tableCount: db.shop.tableCount,
       menu: { cats: db.cats, dishes: db.dishes },
+      served: servedSnapshot(db),
     });
     return true;
   } catch { return false; }
@@ -96,11 +106,23 @@ export async function answerRemote(db, tableNo) {
   mutate((d) => answerCall(d, tableNo));
 }
 
+// 出餐状态变化 → 防抖发布 served 快照（顾客 H5 实时看出餐进度）
+export function attachAutopublish() {
+  let t;
+  subscribe(() => {
+    clearTimeout(t);
+    t = setTimeout(() => { const d = getDB(); if (isOnline(d)) publishMenu(d); }, 1200);
+  });
+}
+
 // 启动静默重连：有配置就恢复实时订阅，失败不打扰
 export function bootstrapRealtime(db, onChange) {
   if (!isOnline(db)) return;
   try {
     const c = getClient(db.shop.pbBase);
-    if (c.authStore.isValid) subscribeRealtime(db, onChange);
+    if (c.authStore.isValid) {
+      subscribeRealtime(db, onChange);
+      attachAutopublish();
+    }
   } catch { /* 未联机 */ }
 }

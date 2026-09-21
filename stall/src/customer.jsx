@@ -23,9 +23,15 @@ const App = () => {
   useEffect(() => {
     if (!shopId || !table) { setErr('请扫桌边的二维码进入点单'); return; }
     const pb = new PocketBase(base);
+    const apply = (rec) => setShop({ name: rec.name, tableCount: rec.tableCount, served: rec.served || {}, ...(rec.menu || {}) });
     pb.collection('stall_shops').getOne(shopId)
-      .then((rec) => setShop({ name: rec.name, tableCount: rec.tableCount, ...(rec.menu || {}) }))
+      .then((rec) => {
+        apply(rec);
+        // 实时订阅：出餐进度/菜单更新即时刷新
+        pb.collection('stall_shops').subscribe(shopId, (e) => { if (e.record) apply(e.record); });
+      })
       .catch(() => setErr('暂时连不上柜台，请稍后再试或直接找摊主点单'));
+    return () => { try { pb.collection('stall_shops').unsubscribe(shopId); } catch { /* 忽略 */ } };
   }, []);
 
   if (err) return <div className="c-wrap"><div className="c-err">😕 {err}</div></div>;
@@ -70,12 +76,20 @@ const App = () => {
 
   const mineTotal = mine.reduce((s, m) => s + m.total, 0);
 
+  const unserved = shop.served?.[table];
+
   return (
     <div className="c-wrap">
       <div className="c-head">
         <b>{shop.name}</b>
         <span>{table}号桌</span>
       </div>
+
+      {unserved !== undefined && (
+        <div className={`c-progress ${unserved === 0 ? 'done' : ''}`}>
+          {unserved === 0 ? '✅ 本桌菜品已全部出餐' : `🍳 本桌还有 ${unserved} 份未出餐，做好了会在这里更新`}
+        </div>
+      )}
 
       {view === 'sent' ? (
         <>

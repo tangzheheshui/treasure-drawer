@@ -6,9 +6,19 @@ export default function Stock({ db, update }) {
   const [dlg, setDlg] = useState(null); // {mode:'mat'|'in'|'use'|'count', mat?}
   const [f, setF] = useState({});
   const [confirmDel, setConfirmDel] = useState(null);
+  const [openDay, setOpenDay] = useState(null);
   const low = lowMats(db);
   const value = stockValue(db);
   const moves = todayMoves(db);
+
+  // ── 按天流水：每天可编辑多次，按日聚合看汇总 + 可展开明细 ──
+  const dayKeyOf = (ts) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  const groups = {};
+  db.moves.forEach((m) => { const k = dayKeyOf(m.at); (groups[k] = groups[k] || []).push(m); });
+  const days = Object.entries(groups).sort((a, b) => b[0] - a[0]).slice(0, 7);
+  const today0 = dayKeyOf(Date.now());
+  const dayLabel = (k) => (k === today0 ? '今天' : k === today0 - 86400000 ? '昨天' : `${new Date(Number(k)).getMonth() + 1}月${new Date(Number(k)).getDate()}日`);
+  const r1 = (n) => Math.round(n * 100) / 100;
 
   const open = (mode, mat) => { setF({}); setDlg({ mode, mat }); };
   const num = () => Number(f.qty);
@@ -74,26 +84,45 @@ export default function Stock({ db, update }) {
         </div>
 
         <div className="card">
-          <b>今日流水</b>
-          <div style={{ marginTop: 4 }}>
-            {moves.map((m) => (
-              <div className="row" key={m.id}>
-                <div className="grow">
-                  <div className="name" style={{ fontSize: 14 }}>{m.matName}</div>
-                  <div className="sub">
-                    {new Date(m.at).toTimeString().slice(0, 5)}{' '}
-                    {m.type === 'in' && `入库 +${m.qty}${m.unit}${m.price ? ` @¥${m.price}` : ''}`}
-                    {m.type === 'use' && `用量 −${m.qty}${m.unit}`}
-                    {m.type === 'count' && `盘点剩 ${m.qty}${m.unit}${m.diff ? `（差异 ${m.diff > 0 ? '+' : ''}${Math.round(m.diff * 100) / 100}${m.unit}）` : ''}`}
-                  </div>
-                </div>
-                <span className={`pill ${m.type === 'in' ? 'served' : m.type === 'use' ? 'unserved' : ''}`}>
-                  {m.type === 'in' ? '+' : m.type === 'use' ? '−' : '='}{m.type === 'count' ? m.qty : m.qty}{m.unit}
-                </span>
-              </div>
-            ))}
-            {!moves.length && <div className="sub" style={{ padding: 8 }}>今天还没有出入库记录。</div>}
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+            <b>按天流水</b>
+            <span className="sub" style={{ marginLeft: 'auto' }}>最近 7 天，点一天展开明细</span>
           </div>
+          {days.map(([k, list]) => {
+            const inAmt = list.filter((m) => m.type === 'in').reduce((s, m) => s + m.qty * (m.price || 0), 0);
+            const useQty = list.filter((m) => m.type === 'use').reduce((s, m) => s + m.qty, 0);
+            const diffCnt = list.filter((m) => m.type === 'count' && m.diff).length;
+            const open = openDay === null ? Number(k) === today0 : openDay === Number(k); // 默认只展开今天
+            return (
+              <div key={k} style={{ borderTop: '1px solid var(--line)', marginTop: 8, paddingTop: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                     onClick={() => setOpenDay(open ? -1 : Number(k))}>
+                  <b style={{ fontSize: 15 }}>{dayLabel(Number(k))}</b>
+                  <span className="sub">
+                    入库 ¥{r1(inAmt)} · 用量 {r1(useQty)}{diffCnt ? ` · 盘点差异 ${diffCnt} 项` : ''}
+                  </span>
+                  <span className="sub" style={{ marginLeft: 'auto' }}>{open ? '▾' : '▸'}</span>
+                </div>
+                {open && list.map((m) => (
+                  <div className="row" key={m.id}>
+                    <div className="grow">
+                      <div className="name" style={{ fontSize: 14 }}>{m.matName}</div>
+                      <div className="sub">
+                        {new Date(m.at).toTimeString().slice(0, 5)}{' '}
+                        {m.type === 'in' && `入库 +${m.qty}${m.unit}${m.price ? ` @¥${m.price}` : ''}`}
+                        {m.type === 'use' && `用量 −${m.qty}${m.unit}`}
+                        {m.type === 'count' && `盘点剩 ${m.qty}${m.unit}${m.diff ? `（差异 ${m.diff > 0 ? '+' : ''}${r1(m.diff)}${m.unit}）` : ''}`}
+                      </div>
+                    </div>
+                    <span className={`pill ${m.type === 'in' ? 'served' : m.type === 'use' ? 'unserved' : ''}`}>
+                      {m.type === 'in' ? '+' : m.type === 'use' ? '−' : '='}{r1(m.qty)}{m.unit}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+          {!days.length && <div className="sub" style={{ padding: 8 }}>还没有出入库记录。</div>}
         </div>
       </div>
 

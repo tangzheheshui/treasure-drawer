@@ -12,6 +12,10 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; 
             padding: 18px 16px; font-size: 18px; font-weight: 700; text-align: center; }
 .c-banner small { display: block; margin-top: 6px; font-weight: 400; font-size: 13px; opacity: 0.9; }
 
+.c-progress { margin: 0 12px 12px; border-radius: 12px; padding: 11px 14px; font-size: 14px;
+              background: #faeadf; color: #c2571a; }
+.c-progress.done { background: #e2f2e8; color: #2b7a4b; }
+
 .c-cats { display: flex; gap: 8px; overflow-x: auto; padding: 4px 12px 10px; }
 .c-cats button { flex: none; border: 1px solid #ddd6c8; background: #fff; border-radius: 99px;
                  padding: 8px 16px; font-size: 14px; cursor: pointer; }

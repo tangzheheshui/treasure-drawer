@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { seed } from '../store.js';
 import { say } from '../voice.js';
-import { login, register, ensureShop, publishMenu, subscribeRealtime, isOnline } from '../sync.js';
+import { login, register, ensureShop, publishMenu, subscribeRealtime, attachAutopublish, isOnline } from '../sync.js';
 
 const DEFAULT_BASE = 'https://auth.tangzheheshui.cn';
 
@@ -18,6 +18,7 @@ export default function Settings({ db, update, nav }) {
     const rec = await ensureShop(db);
     await publishMenu(db);
     subscribeRealtime(db, () => {});
+    attachAutopublish();
     update((d) => { d.shop.pbEmail = email.trim(); d.shop.pbId = rec.id; });
     setMsg('已联机，顾客下单会实时播报');
   };

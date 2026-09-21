@@ -108,7 +108,10 @@ export const hasCall = (db, no) => db.calls.some((c) => c.tableNo === no);
 // ── 动作 ──
 export function submitOrder(db, tableNo, items, isAdd) {
   const o = activeOrder(db, tableNo);
-  const lined = items.map((i) => ({ ...i, id: uid(), served: false }));
+  const lined = items.map((i) => {
+    const dish = db.dishes.find((x) => x.name === i.name); // 下单时快照成本价（毛利统计的基础）
+    return { ...i, id: uid(), served: false, cost: Number(dish?.cost ?? i.cost ?? 0) };
+  });
   const batch = { id: uid(), at: Date.now(), items: lined, settled: false };
   if (o) {
     o.batches.push(batch);
@@ -226,3 +229,14 @@ export const todayMoves = (db) => {
   const d = new Date(); d.setHours(0, 0, 0, 0);
   return db.moves.filter((m) => m.at >= d.getTime());
 };
+
+// ── 统计派生 ──
+// offset=0 今天零点；offset=1 明天零点；offset=-1 昨天零点（正数向未来偏移）
+export const dayStartTs = (offset) => {
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  return d.getTime() + offset * 86400000;
+};
+export const ordersBetween = (db, from, to = Infinity) =>
+  db.orders.filter((o) => o.status === 'closed' && o.closedAt >= from && o.closedAt < to);
+export const orderItems = (o) => (o.batches || []).flatMap((b) => b.items);
+export const orderCost = (o) => orderItems(o).reduce((s, i) => s + (i.cost || 0) * i.qty, 0);
