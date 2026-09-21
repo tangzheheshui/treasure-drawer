@@ -93,6 +93,16 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; 
               padding-top: 10px; border-top: 1px dashed var(--line); font-size: 15px; }
 .total-line b { font-size: 20px; }
 
+/* 菜单浏览排版（点线引导价目） */
+.mhead { display: flex; align-items: center; gap: 8px; padding: 12px 2px 4px; }
+.mhead b { font-size: 16px; }
+.mhead .line { flex: 1; border-top: 1px dashed var(--line); }
+.mrow { display: flex; align-items: center; gap: 8px; padding: 11px 2px; }
+.mrow .mname { font-size: 16px; font-weight: 500; }
+.mrow .mname.dead { text-decoration: line-through; color: var(--sub); }
+.mrow .dots { flex: 1; border-bottom: 1px dotted #c8ccd2; margin: 0 6px; transform: translateY(4px); }
+.mrow .price { font-weight: 700; }
+
 /* 二维码 */
 .qr-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .qr-card { background: #fff; border-radius: 14px; padding: 12px; text-align: center; }

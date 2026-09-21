@@ -2,9 +2,13 @@ import React, { useState } from 'react';
 import { uid } from '../store.js';
 
 export default function MenuPage({ db, update }) {
-  const [edit, setEdit] = useState(null);   // { id?, catId, name, price, soldOut }
+  const [editing, setEditing] = useState(false);  // 默认浏览态，点「编辑」才进管理
+  const [edit, setEdit] = useState(null);         // { id?, catId, name, price, soldOut }
   const [newCat, setNewCat] = useState(false);
   const [catName, setCatName] = useState('');
+  const [confirm, setConfirm] = useState(null);   // { text, ok: fn }
+
+  const ask = (text, ok) => setConfirm({ text, ok });
 
   const save = () => {
     const name = (edit.name || '').trim();
@@ -23,28 +27,86 @@ export default function MenuPage({ db, update }) {
 
   return (
     <>
-      <div className="nav">菜品管理<button className="act" onClick={() => { setCatName(''); setNewCat(true); }}>＋ 分类</button></div>
+      <div className="nav">
+        菜品
+        <button className="act" style={editing ? { background: '#2b7a4b' } : undefined}
+                onClick={() => setEditing(!editing)}>{editing ? '✓ 完成' : '编辑'}</button>
+      </div>
       <div className="page">
-        {db.cats.map((c) => (
-          <div className="card" key={c.id}>
-            <b>{c.name}</b>
-            <div style={{ marginTop: 4 }}>
-              {db.dishes.filter((d) => d.catId === c.id).map((d) => (
-                <div className="row" key={d.id}>
-                  <div className="grow">
-                    <div className={`name ${d.soldOut ? 'dead' : ''}`}>{d.name}{d.soldOut && <span className="pill" style={{ marginLeft: 8 }}>售罄</span>}</div>
-                  </div>
+        {db.cats.map((c) => {
+          const dishes = db.dishes.filter((d) => d.catId === c.id);
+          return (
+            <div className="card" key={c.id} style={{ paddingTop: 4, paddingBottom: editing ? 12 : 4 }}>
+              <div className="mhead">
+                <b>{c.name}</b>
+                <span className="sub">{dishes.length} 道</span>
+                <span className="line" />
+                {editing && (
+                  <>
+                    <button className="mini ok" onClick={() => setEdit({ id: null, catId: c.id, name: '', price: '' })}>＋ 加菜品</button>
+                    <button
+                      className="mini"
+                      style={{ color: 'var(--danger)' }}
+                      onClick={() => ask(
+                        dishes.length ? `删除分类「${c.name}」？下面 ${dishes.length} 道菜会一起删掉。` : `删除空分类「${c.name}」？`,
+                        () => update((d) => {
+                          d.cats = d.cats.filter((x) => x.id !== c.id);
+                          d.dishes = d.dishes.filter((x) => x.catId !== c.id);
+                        })
+                      )}
+                    >删分类</button>
+                  </>
+                )}
+              </div>
+
+              {dishes.map((d) => (
+                <div className="mrow" key={d.id}
+                     onClick={() => { if (editing) setEdit({ ...d }); }}
+                     style={{ cursor: editing ? 'pointer' : 'default', opacity: d.soldOut ? 0.45 : 1 }}>
+                  <span className={`mname ${d.soldOut ? 'dead' : ''}`}>
+                    {d.name}{d.soldOut && <span className="pill" style={{ marginLeft: 8 }}>售罄</span>}
+                  </span>
+                  <span className="dots" />
                   <span className="price">¥{d.price}</span>
-                  <button className="mini" onClick={() => setEdit({ ...d })}>编辑</button>
+                  {editing && (
+                    <>
+                      <button
+                        className={'mini ' + (d.soldOut ? '' : 'ok')}
+                        onClick={(e) => { e.stopPropagation(); update((x) => { const it = x.dishes.find((y) => y.id === d.id); it.soldOut = !it.soldOut; }); }}
+                      >{d.soldOut ? '已售罄' : '在售'}</button>
+                      <button
+                        className="sqbtn del"
+                        onClick={(e) => { e.stopPropagation(); ask(`删除「${d.name}」（¥${d.price}）？已下的单不受影响。`, () => update((x) => { x.dishes = x.dishes.filter((y) => y.id !== d.id); })); }}
+                      >✕</button>
+                    </>
+                  )}
                 </div>
               ))}
-              {!db.dishes.some((d) => d.catId === c.id) && <div className="sub" style={{ padding: '8px 0' }}>还没有菜。</div>}
+              {!dishes.length && (
+                <div className="sub" style={{ padding: '10px 2px' }}>
+                  {editing ? '还没有菜，点上面「＋ 加菜品」。' : '这个分类还没有菜。'}
+                </div>
+              )}
             </div>
-            <button className="mini ok" style={{ marginTop: 8 }} onClick={() => setEdit({ id: null, catId: c.id, name: '', price: '' })}>＋ 加菜品</button>
-          </div>
-        ))}
-        <div className="sub" style={{ textAlign: 'center' }}>点菜品可改价、标记售罄或删除</div>
+          );
+        })}
+        <div className="sub" style={{ textAlign: 'center' }}>
+          {editing ? '点菜名改价 / 标售罄，✕ 删除；改完点「✓ 完成」' : '点右上「编辑」改菜单'}
+        </div>
       </div>
+
+      {confirm && (
+        <div className="mask" onClick={() => setConfirm(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>确认</h3>
+            <div className="sub">{confirm.text}</div>
+            <div className="mfoot">
+              <button className="btn" onClick={() => setConfirm(null)}>取消</button>
+              <button className="btn danger" onClick={() => { confirm.ok(); setConfirm(null); }}>删除</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {newCat && (
         <div className="mask" onClick={() => setNewCat(false)}>
@@ -71,12 +133,9 @@ export default function MenuPage({ db, update }) {
             <input className="f" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
             <div className="label">价格（元）</div>
             <input className="f" type="number" inputMode="decimal" value={edit.price} onChange={(e) => setEdit({ ...edit, price: e.target.value })} />
-            <div className="label">售罄</div>
-            <button className="btn block" onClick={() => setEdit({ ...edit, soldOut: !edit.soldOut })}>
-              {edit.soldOut ? '已售罄（点这里恢复）' : '在售（点这里标记售罄）'}
-            </button>
+            <div className="sub" style={{ marginTop: 8 }}>售罄/上架用列表里的一键开关更快，不用进这里。</div>
             <div className="mfoot">
-              {edit.id && <button className="btn danger" onClick={() => { update((d) => { d.dishes = d.dishes.filter((x) => x.id !== edit.id); }); setEdit(null); }}>删除</button>}
+              {edit.id && <button className="btn danger" onClick={() => ask(`删除「${edit.name}」？已下的单不受影响。`, () => { update((d) => { d.dishes = d.dishes.filter((x) => x.id !== edit.id); }); setEdit(null); })}>删除</button>}
               <button className="btn" onClick={() => setEdit(null)}>取消</button>
               <button className="btn primary" onClick={save}>保存</button>
             </div>

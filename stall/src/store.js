@@ -58,6 +58,23 @@ export function subscribe(fn) {
 export const activeOrder = (db, tableNo) => db.orders.find((o) => o.status === 'active' && o.tableNo === tableNo);
 export const orderTotal = (o) => o.items.reduce((s, i) => s + i.price * i.qty, 0);
 export const unservedCount = (o) => o.items.filter((i) => !i.served).reduce((s, i) => s + i.qty, 0);
+// 收款：一笔账单可分次结（加菜后再结一笔），paidTotal 已收 / dueTotal 待收（可为负=多收要找零）
+export const paidTotal = (o) => (o.payments || []).reduce((s, p) => s + p.amount, 0);
+export const dueTotal = (o) => orderTotal(o) - paidTotal(o);
+export function payBill(db, orderId, amount) {
+  const o = db.orders.find((x) => x.id === orderId);
+  if (!o || amount <= 0) return;
+  o.payments = o.payments || [];
+  o.payments.push({ at: Date.now(), amount });
+}
+export const dueText = (o) => {
+  const due = dueTotal(o);
+  return due > 0 ? { cls: 'danger', text: `待收 ¥${due}` } : due < 0 ? { cls: 'warn', text: `多收 ¥${-due} 待找零` } : { cls: 'ok', text: '已收齐' };
+};
+export function undoLastPayment(db, orderId) {
+  const o = db.orders.find((x) => x.id === orderId);
+  if (o && o.payments && o.payments.length) o.payments.pop();
+}
 
 export function tableState(db, no) {
   const o = activeOrder(db, no);
@@ -88,6 +105,13 @@ export function markServed(db, orderId, itemId) {
   const o = db.orders.find((x) => x.id === orderId);
   const i = o && o.items.find((x) => x.id === itemId);
   if (i) i.served = true;
+}
+
+// 出错了可撤销出餐（桌态由推导自动回到「用餐中」）
+export function unserveItem(db, orderId, itemId) {
+  const o = db.orders.find((x) => x.id === orderId);
+  const i = o && o.items.find((x) => x.id === itemId);
+  if (i) i.served = false;
 }
 
 export function serveAll(db, orderId) {

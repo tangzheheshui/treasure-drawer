@@ -1,10 +1,12 @@
 import React from 'react';
+import { orderTotal, paidTotal, dueTotal, dueText } from '../store.js';
 
 export default function History({ db }) {
   const closed = db.orders.filter((o) => o.status === 'closed').sort((a, b) => b.closedAt - a.closedAt);
   const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
   const today = closed.filter((o) => o.closedAt >= dayStart.getTime());
-  const revenue = today.reduce((s, o) => s + o.items.reduce((x, i) => x + i.price * i.qty, 0), 0);
+  const revenue = today.reduce((s, o) => s + orderTotal(o), 0);
+  const unpaid = today.filter((o) => dueTotal(o) > 0).length;
   const rank = {};
   today.forEach((o) => o.items.forEach((i) => { rank[i.name] = (rank[i.name] || 0) + i.qty; }));
   const top = Object.entries(rank).sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -25,6 +27,7 @@ export default function History({ db }) {
           <div style={{ display: 'flex', gap: 24, marginTop: 8 }}>
             <div><div className="sub">订单数</div><b style={{ fontSize: 24 }}>{today.length}</b></div>
             <div><div className="sub">营收（仅记录）</div><b style={{ fontSize: 24 }}>¥{revenue}</b></div>
+            <div><div className="sub">未收清</div><b style={{ fontSize: 24, color: unpaid ? 'var(--danger)' : 'var(--ok)' }}>{unpaid} 单</b></div>
           </div>
           {top.length > 0 && (
             <div style={{ marginTop: 10 }}>
@@ -46,8 +49,13 @@ export default function History({ db }) {
               <div key={o.id} style={{ borderTop: '1px solid var(--line)', marginTop: 8, paddingTop: 8 }}>
                 <div style={{ display: 'flex' }}>
                   <b className="grow">{o.tableNo}号桌</b>
-                  <span className="sub">{new Date(o.closedAt).toTimeString().slice(0, 5)}</span>
-                  <b style={{ marginLeft: 12 }}>¥{o.items.reduce((s, i) => s + i.price * i.qty, 0)}</b>
+                  {(() => {
+                    const t = dueText(o);
+                    const color = t.cls === 'danger' ? 'var(--danger)' : t.cls === 'warn' ? 'var(--warn)' : 'var(--ok)';
+                    return <span className="pill" style={{ color, background: paidTotal(o) > 0 ? undefined : '#e8eaee' }}>{t.text}</span>;
+                  })()}
+                  <span className="sub" style={{ marginLeft: 8 }}>{new Date(o.closedAt).toTimeString().slice(0, 5)}</span>
+                  <b style={{ marginLeft: 12 }}>¥{orderTotal(o)}</b>
                 </div>
                 <div className="sub">{o.items.map((i) => `${i.name}×${i.qty}`).join('，')}</div>
               </div>

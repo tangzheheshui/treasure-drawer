@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { activeOrder, orderTotal, unservedCount, hasCall, markServed, serveAll, removeItem, clearTable } from '../store.js';
+import { activeOrder, orderTotal, paidTotal, dueTotal, dueText, unservedCount, hasCall, markServed, unserveItem, serveAll, removeItem, clearTable, payBill, undoLastPayment } from '../store.js';
 import { answerRemote } from '../sync.js';
 import { say } from '../voice.js';
 
@@ -22,12 +22,18 @@ export default function Detail({ db, update, tableNo, nav }) {
 
   const total = orderTotal(order);
   const unserved = unservedCount(order);
+  const paid = paidTotal(order);
+  const due = dueTotal(order);
   const call = hasCall(db, tableNo);
 
+  // 点一下标出餐，再点一下撤销（出错了能撤回）；最后一份出餐 → 叫号
   const tapServe = (item) => {
-    if (item.served) return;
+    if (item.served) {
+      update((d) => unserveItem(d, order.id, item.id));
+      return;
+    }
     update((d) => markServed(d, order.id, item.id));
-    if (unserved - item.qty === 0) say(`${tableNo}号桌取餐`); // 最后一份出餐 → 叫号
+    if (unserved - item.qty === 0) say(`${tableNo}号桌取餐`);
   };
   const serveEverything = () => {
     if (!unserved) return;
@@ -58,6 +64,7 @@ export default function Detail({ db, update, tableNo, nav }) {
                           : <span className="pill served" style={{ marginLeft: 8 }}>已全部出餐</span>}
             <button className="mini ok" style={{ marginLeft: 'auto' }} disabled={!unserved} onClick={serveEverything}>一键全出</button>
           </div>
+          <div className="sub" style={{ marginTop: 4 }}>点菜名标出餐；点错了再点一下就撤销。</div>
           <div style={{ marginTop: 6 }}>
             {order.items.map((i) => (
               <div className="row" key={i.id}>
@@ -75,6 +82,32 @@ export default function Detail({ db, update, tableNo, nav }) {
             ))}
           </div>
           <div className="total-line"><span>合计（现金/扫码自收）</span><b>¥{total}</b></div>
+
+          {/* 收款：可分次结（加菜后再结一笔），误记可撤销最后一笔；多收提示找零 */}
+          <div className="total-line">
+            <span>已收 <b style={{ color: 'var(--ok)' }}>¥{paid}</b>
+              {due > 0 && <span> / 待收 <b style={{ color: 'var(--danger)' }}>¥{due}</b></span>}
+              {paid > 0 && due === 0 && <span className="pill served" style={{ marginLeft: 6 }}>已收齐</span>}
+              {due < 0 && <span className="pill unserved" style={{ marginLeft: 6 }}>多收 ¥{-due} 记得找零</span>}
+            </span>
+            <button className="btn ok" style={{ padding: '9px 16px' }} disabled={due <= 0}
+                    onClick={() => update((d) => payBill(d, order.id, due))}>
+              {due > 0 ? (paid > 0 ? `再结一笔 ¥${due}` : `结一笔 ¥${due}`) : '已收齐'}
+            </button>
+          </div>
+          {(order.payments || []).length > 0 && (
+            <div className="sub" style={{ marginTop: 6 }}>
+              {(order.payments || []).map((p, k) => (
+                <span key={k} style={{ marginRight: 10 }}>
+                  {new Date(p.at).toTimeString().slice(0, 5)} 收 ¥{p.amount}
+                  {k === order.payments.length - 1 && (
+                    <button className="mini" style={{ marginLeft: 6, padding: '3px 8px' }}
+                            onClick={() => update((d) => undoLastPayment(d, order.id))}>撤销</button>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
@@ -101,7 +134,10 @@ export default function Detail({ db, update, tableNo, nav }) {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>{tableNo}号桌消费 {total} 元，确认清台？</h3>
             <div className="sub">
-              {unserved > 0 ? <b style={{ color: 'var(--danger)' }}>还有 {unserved} 份未出餐！</b> : '所有菜品已出餐。'}
+              {due > 0 ? <b style={{ color: 'var(--danger)' }}>还有 ¥{due} 没收！</b>
+                : due < 0 ? <b style={{ color: 'var(--warn)' }}>多收了 ¥{-due}，记得找零。</b>
+                : <b style={{ color: 'var(--ok)' }}>已收齐 ¥{paid}。</b>}
+              {unserved > 0 && <div>还有 {unserved} 份未出餐！</div>}
               清台后订单归档，桌号释放给下一桌。
             </div>
             <div className="mfoot">

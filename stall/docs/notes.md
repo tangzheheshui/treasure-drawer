@@ -21,11 +21,16 @@
 shop: { name, tableCount, voice, volume, pbBase?, pbId?, pbEmail? }
 cats: [{ id, name }]
 dishes: [{ id, catId, name, price, soldOut }]
-orders: [{ id, tableNo, status: active|closed, items: [{ id, name, price, qty, note, served }], createdAt, closedAt }]
+orders: [{ id, tableNo, status: active|closed, items: [{ id, name, price, qty, note, served }], createdAt, closedAt, payments?: [{ at, amount }] }]
 calls: [{ tableNo, at, pbId? }]   // 未处理呼叫，进详情即消；联机时删云端记录
 seen: [订单记录 id]               // 实时去重
 ```
 桌态推导：无活跃单=空闲；活跃单全出餐=待清台；否则用餐中。
+
+## 2026-09-21 人试用反馈落地的三件事
+- 收款标记：账单可分次「结一笔」（记录每笔金额可撤销），已收/待收/多收找零全显示（先结账后退菜会多收）；清台弹窗与历史订单都带收款状态。
+- 出餐可撤销：点菜名切换出餐/撤销（出一半弄错了能撤回）；待清台撤回后自动回「用餐中」。
+- 菜品页双态：默认浏览态（点线价目排版好看好读），右上「编辑」才进管理（分类/菜品删改 + 在售/已售罄一键切换）。售罄=高频库存操作做成行内快切，不进弹窗；弹窗只管改名改价。首页右上角设置入口删掉（底栏已有）。
 
 ## 联机架构（2026-09-21 实现）
 - 云端 PocketBase 三集合：`stall_shops`（菜单+店铺信息，公开读/店主写）、`stall_orders`（顾客投递的每笔下单，公开建/读，无人改删）、`stall_calls`（呼叫，公开建/读）。规则由 `scripts/pb-setup.mjs` 幂等下发。

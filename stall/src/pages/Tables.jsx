@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { tableState, orderTotal, unservedCount, hasCall, activeOrder, submitOrder, sayItemsText, callTable } from '../store.js';
+import { tableState, orderTotal, paidTotal, dueTotal, dueText, unservedCount, hasCall, activeOrder, submitOrder, sayItemsText, callTable } from '../store.js';
 import { say } from '../voice.js';
 
 const ST_NAME = { idle: '空闲', dining: '用餐中', pending: '待清台' };
@@ -48,7 +48,7 @@ export default function Tables({ db, update, nav }) {
 
   return (
     <>
-      <div className="nav">{db.shop.name || '摊主点单'}<button className="act" onClick={() => nav('#/settings')}>设置</button></div>
+      <div className="nav">{db.shop.name || '摊主点单'}</div>
       <div className="page">
         {db.calls.length > 0 && (
           <div className="card" style={{ borderColor: '#b42318', borderWidth: 1, borderStyle: 'solid' }}>
@@ -69,12 +69,16 @@ export default function Tables({ db, update, nav }) {
                 <span className="no">{no}号桌</span>
                 <span className="st">{ST_NAME[state]}</span>
                 {call && <span className="callflag">呼叫!</span>}
-                {order && (
-                  <div className="meta">
-                    <span className="total">¥{orderTotal(order)}</span>
-                    {unservedCount(order) > 0 && <span>未出 {unservedCount(order)} 份</span>}
-                  </div>
-                )}
+                {order && (() => {
+                  const due = dueText(order);
+                  return (
+                    <div className="meta">
+                      <span className="total">¥{orderTotal(order)}</span>
+                      {unservedCount(order) > 0 && <span>未出 {unservedCount(order)} 份</span>}
+                      {paidTotal(order) > 0 && <span style={{ color: due.cls === 'danger' ? 'var(--danger)' : due.cls === 'warn' ? 'var(--warn)' : 'var(--ok)' }}>{due.text}</span>}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
