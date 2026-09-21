@@ -116,7 +116,7 @@ export function submitOrder(db, tableNo, items, isAdd, guests) {
   if (o) {
     o.batches.push(batch);
   } else {
-    db.orders.push({ id: uid(), tableNo, status: 'active', batches: [batch], guests: Number(guests) || 0, createdAt: Date.now(), closedAt: null });
+    db.orders.push({ id: uid(), tableNo, status: 'active', type: 'dine', batches: [batch], guests: Number(guests) || 0, createdAt: Date.now(), closedAt: null });
   }
   return lined;
 }
