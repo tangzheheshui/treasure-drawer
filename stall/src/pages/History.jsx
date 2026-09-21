@@ -175,18 +175,6 @@ export default function History({ db }) {
             </>
           )}
         </div>
-
-          {low.length > 0 && (
-            <div className="sub" style={{ marginTop: 6, color: 'var(--danger)' }}>
-              🔔 该补货：{low.map((m) => `${m.name}（剩 ${r1(m.stock)}${m.unit}）`).join('、')}
-            </div>
-          )}
-          {diffMoves.length > 0 && (
-            <div className="sub" style={{ marginTop: 6 }}>
-              今日盘点差异：{diffMoves.map((m) => `${m.matName} ${m.diff > 0 ? '+' : ''}${r1(m.diff)}${m.unit}`).join('，')}
-            </div>
-          )}
-        </div>
       </div>
     </>
   );
