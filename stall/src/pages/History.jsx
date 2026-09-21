@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { orderTotal, orderItems, orderCost, ordersBetween, dayStartTs, stockValue, todayMoves, lowMats } from '../store.js';
+import { orderTotal, orderItems, orderCost, ordersBetween, dayStartTs } from '../store.js';
 
 const DAY = 86400000;
 const monthStart = (off) => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + off, 1).getTime(); };
@@ -112,15 +112,6 @@ export default function History({ db }) {
   const noMargin = Object.entries(stat).filter(([, s]) => s.qty > 0).sort((a, b) => a[1].margin - b[1].margin).slice(0, 5)
     .filter(([, s]) => s.margin <= 0);
 
-  // 库存（当前 + 今日）
-  const tm = todayMoves(db);
-  const inSpendToday = tm.filter((m) => m.type === 'in').reduce((s, m) => s + m.qty * (m.price || 0), 0);
-  const inQtyToday = tm.filter((m) => m.type === 'in').reduce((s, m) => s + m.qty, 0);
-  const useQtyToday = tm.filter((m) => m.type === 'use').reduce((s, m) => s + m.qty, 0);
-  const diffMoves = tm.filter((m) => m.type === 'count' && m.diff);
-  const low = lowMats(db);
-  const value = stockValue(db);
-
   const Chips = () => (
     <div className="chips">
       {RANGES.map((r) => (
@@ -185,11 +176,6 @@ export default function History({ db }) {
           )}
         </div>
 
-        <div className="card">
-          <b>库存现状</b>
-          <div className="sub" style={{ marginTop: 4 }}>
-            结余 <b style={{ color: 'var(--ink)' }}>¥{r1(value)}</b> · 今日入库 {r1(inQtyToday)}（¥{r1(inSpendToday)}）· 今日用量 {r1(useQtyToday)}
-          </div>
           {low.length > 0 && (
             <div className="sub" style={{ marginTop: 6, color: 'var(--danger)' }}>
               🔔 该补货：{low.map((m) => `${m.name}（剩 ${r1(m.stock)}${m.unit}）`).join('、')}
