@@ -49,6 +49,10 @@ try {
   await page.locator('.tabbar button').nth(2).click();        // 统计
   await page.waitForFunction(() => document.body.textContent.includes('今日'), { timeout: 5000 });
   ok('今日统计出现归档订单', (await page.locator('.card').count()) >= 1);
+
+  await page.goto(`${url}customer.html`);                     // 顾客页：无二维码参数时的友好提示
+  await page.waitForFunction(() => document.body.textContent.includes('二维码'), { timeout: 5000 });
+  ok('顾客 H5 无参数时给出引导文案', true);
   ok('全程无脚本错误', errors.length === 0);
 } catch (e) {
   ok(`自检中断：${String(e.message).split('\n')[0]}`, false);

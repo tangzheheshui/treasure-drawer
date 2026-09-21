@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { loadDB, getDB, mutate, subscribe } from './store.js';
 import { syncVoice } from './voice.js';
+import { bootstrapRealtime } from './sync.js';
 import Tables from './pages/Tables.jsx';
 import TakeOrder from './pages/TakeOrder.jsx';
 import Detail from './pages/Detail.jsx';
 import MenuPage from './pages/Menu.jsx';
 import Settings from './pages/Settings.jsx';
 import History from './pages/History.jsx';
+import Qr from './pages/Qr.jsx';
 
 function parseRoute() {
   const h = (location.hash || '#/tables').replace(/^#\/?/, '');
@@ -21,7 +23,7 @@ export default function App() {
   const [route, setRoute] = useState(parseRoute());
 
   useEffect(() => {
-    loadDB().then(() => setDb({ ...getDB() }));
+    loadDB().then((d) => { setDb({ ...getDB() }); bootstrapRealtime(d, () => setDb({ ...getDB() })); });
     const onHash = () => setRoute(parseRoute());
     addEventListener('hashchange', onHash);
     const un = subscribe(() => setDb({ ...getDB() }));
@@ -40,10 +42,11 @@ export default function App() {
   else if (page === 'table' && param) body = <Detail db={db} tableNo={+param} update={update} nav={nav} />;
   else if (page === 'menu') body = <MenuPage db={db} update={update} />;
   else if (page === 'history') body = <History db={db} />;
-  else if (page === 'settings') body = <Settings db={db} update={update} />;
+  else if (page === 'settings') body = <Settings db={db} update={update} nav={nav} />;
+  else if (page === 'qr') body = <Qr db={db} nav={nav} />;
   else { tab = 'tables'; body = <Tables db={db} update={update} nav={nav} />; }
 
-  const isFlow = page === 'order' || page === 'table';
+  const isFlow = page === 'order' || page === 'table' || page === 'qr';
 
   return (
     <div className="app">

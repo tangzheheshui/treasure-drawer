@@ -106,11 +106,18 @@ export function clearTable(db, tableNo) {
   db.calls = db.calls.filter((c) => c.tableNo !== tableNo);
 }
 
-export function callTable(db, tableNo) {
+export function callTable(db, tableNo, pbId) {
   db.calls = db.calls.filter((c) => c.tableNo !== tableNo);
-  db.calls.push({ tableNo, at: Date.now() });
+  db.calls.push({ tableNo, at: Date.now(), pbId });
 }
 
 export function answerCall(db, tableNo) {
   db.calls = db.calls.filter((c) => c.tableNo !== tableNo);
+}
+
+// 顾客 H5 实时进单：合并进该桌活跃订单（首次=新单，其后=加单），返回是加单还是新单
+export function ingestRemoteOrder(db, tableNo, items) {
+  const isAdd = !!activeOrder(db, tableNo);
+  submitOrder(db, tableNo, items.map((i) => ({ name: i.name, price: i.price, qty: i.qty, note: i.note || '' })), true);
+  return isAdd;
 }

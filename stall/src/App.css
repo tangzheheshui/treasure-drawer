@@ -92,3 +92,16 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; 
 .total-line { display: flex; justify-content: space-between; align-items: center; margin-top: 10px;
               padding-top: 10px; border-top: 1px dashed var(--line); font-size: 15px; }
 .total-line b { font-size: 20px; }
+
+/* 二维码 */
+.qr-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.qr-card { background: #fff; border-radius: 14px; padding: 12px; text-align: center; }
+.qr-card img { width: 100%; max-width: 220px; border-radius: 8px; }
+.qr-card b { display: block; font-size: 17px; margin: 6px 0 2px; }
+@media print {
+  .nav, .tabbar, .no-print { display: none !important; }
+  body { background: #fff; }
+  .page { padding: 0; overflow: visible; }
+  .qr-grid { grid-template-columns: repeat(3, 1fr); }
+  .qr-card { break-inside: avoid; border: 1px solid #ddd; }
+}

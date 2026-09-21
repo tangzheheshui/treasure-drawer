@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { activeOrder, orderTotal, unservedCount, hasCall, markServed, serveAll, removeItem, clearTable, answerCall } from '../store.js';
+import { activeOrder, orderTotal, unservedCount, hasCall, markServed, serveAll, removeItem, clearTable } from '../store.js';
+import { answerRemote } from '../sync.js';
 import { say } from '../voice.js';
 
 export default function Detail({ db, update, tableNo, nav }) {
@@ -46,7 +47,7 @@ export default function Detail({ db, update, tableNo, nav }) {
         {call && (
           <div className="card" style={{ border: '1px solid var(--danger)', display: 'flex', alignItems: 'center', gap: 10 }}>
             <div className="grow"><b style={{ color: 'var(--danger)' }}>🔔 该桌呼叫中</b><div className="sub">纸巾/加料/结账等请求</div></div>
-            <button className="btn primary" onClick={() => update((d) => answerCall(d, tableNo))}>知道了</button>
+            <button className="btn primary" onClick={() => answerRemote(db, tableNo)}>知道了</button>
           </div>
         )}
 

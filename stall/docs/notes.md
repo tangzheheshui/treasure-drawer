@@ -18,10 +18,18 @@
 
 ## 数据模型
 ```
-shop: { name, tableCount, voice, volume }
+shop: { name, tableCount, voice, volume, pbBase?, pbId?, pbEmail? }
 cats: [{ id, name }]
 dishes: [{ id, catId, name, price, soldOut }]
 orders: [{ id, tableNo, status: active|closed, items: [{ id, name, price, qty, note, served }], createdAt, closedAt }]
-calls: [{ tableNo, at }]   // 未处理呼叫，进详情即消
+calls: [{ tableNo, at, pbId? }]   // 未处理呼叫，进详情即消；联机时删云端记录
+seen: [订单记录 id]               // 实时去重
 ```
 桌态推导：无活跃单=空闲；活跃单全出餐=待清台；否则用餐中。
+
+## 联机架构（2026-09-21 实现）
+- 云端 PocketBase 三集合：`stall_shops`（菜单+店铺信息，公开读/店主写）、`stall_orders`（顾客投递的每笔下单，公开建/读，无人改删）、`stall_calls`（呼叫，公开建/读）。规则由 `scripts/pb-setup.mjs` 幂等下发。
+- 顾客 H5（`customer.html` 独立入口）：URL `?s=店铺id & t=桌号 & b=服务器`，即二维码内容。菜单读云端店铺记录（摊主手机离线也能点）；提交=create 一笔订单；呼叫=create 一笔 call；「查看已点」走本页 sessionStorage（V1 只读，出餐进度 P1）。
+- 摊主端 `sync.js`：登录→ensureShop→发布菜单（手动按钮）；实时订阅 SSE：orders create → 去重（seen）→ 并入该桌活跃订单 → 播报；calls create → 闪卡+播报，处理呼叫=删云端记录（删不掉本地消，超时兜底）。
+- 断网语义：摊主端离线照常记单（本地为准）；顾客端连不上云端会明说「暂时连不上柜台」。多设备同步（帮工）留 V1.1。
+- 本机自测：`npm run pb-setup`（先填环境变量）→ 设置里注册登录 → 生成二维码 → 手机扫码真机走一遍。
