@@ -111,6 +111,27 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; 
 .catdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
 .mrow .price { color: #2b7a4b; font-weight: 700; }
 
+/* 小票 */
+.receipt { background: #fff; border-radius: 10px; padding: 16px; font-family: ui-monospace, Consolas, "Courier New", monospace; font-size: 13px; }
+.receipt .r-shop { text-align: center; font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.receipt .r-line { color: #444; }
+.receipt .r-div { border-top: 1px dashed #999; margin: 8px 0; }
+.receipt .r-item { display: flex; justify-content: space-between; padding: 2px 0; }
+.receipt .r-total { font-weight: 700; font-size: 15px; }
+.receipt .r-thanks { text-align: center; margin-top: 10px; color: #666; }
+@media print {
+  body * { visibility: hidden; }
+  .receipt, .receipt * { visibility: visible; }
+  .receipt { position: absolute; left: 0; top: 0; width: 100%; border-radius: 0; }
+}
+
+/* 统计时间选择条（吸顶） */
+.chips { position: sticky; top: 0; z-index: 5; background: var(--bg); display: flex; gap: 6px;
+         padding: 10px 0; margin: -2px 0 4px; border-bottom: 1px solid var(--line); }
+.chips button { flex: 1; border: 1px solid var(--line); background: #fff; border-radius: 99px;
+                padding: 8px 0; font-size: 13px; cursor: pointer; color: var(--ink); }
+.chips button.on { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 700; }
+
 /* 统计瓦片 */
 .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
 .tile { background: #f7f8fa; border-radius: 10px; padding: 10px; }

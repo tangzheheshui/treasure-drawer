@@ -132,7 +132,7 @@ export default function Detail({ db, update, tableNo, nav }) {
             </div>
             <div className="mfoot">
               <button className="btn" onClick={() => setAskClear(false)}>再想想</button>
-              <button className="btn warn" onClick={() => { update((d) => clearTable(d, tableNo)); setAskClear(false); nav('#/tables'); }}>确认清台</button>
+              <button className="btn warn" onClick={() => { const oid = order.id; update((d) => clearTable(d, tableNo)); setAskClear(false); nav(`#/receipt/${oid}`); }}>确认清台</button>
             </div>
           </div>
         </div>

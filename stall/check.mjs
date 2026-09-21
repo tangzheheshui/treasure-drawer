@@ -49,7 +49,11 @@ try {
   ok('全部出餐后标记「已出餐」', true);
   await page.locator('.btn.warn').click();                    // 结账并清台
   await page.waitForSelector('.modal', { timeout: 5000 });
-  await page.locator('.modal .btn.warn').click();             // 二次确认
+  await page.locator('.modal .btn.warn').click();             // 二次确认 → 小票页
+  await page.waitForSelector('.receipt', { timeout: 5000 });
+  ok('清台后进小票页（可打印）', (await page.textContent('.receipt')).includes('合计'));
+  ok('小票含打印按钮', (await page.locator('.btn.primary').count()) >= 1);
+  await page.locator('.nav .back').click();                   // 完成 → 回桌台
   await page.waitForSelector('.tcard.idle', { timeout: 5000 });
   ok('清台后桌号回到「空闲」', true);
 

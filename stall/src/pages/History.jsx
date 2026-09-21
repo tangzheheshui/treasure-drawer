@@ -69,6 +69,8 @@ export default function History({ db }) {
   const avg = list.length ? r1(revenue / list.length) : 0;
   const rate = revenue ? Math.round((profit / revenue) * 100) : 0;
   const inSpend = db.moves.filter((m) => m.type === 'in' && m.at >= from && m.at < to).reduce((s, m) => s + m.qty * (m.price || 0), 0);
+  const useQtyRange = db.moves.filter((m) => m.type === 'use' && m.at >= from && m.at < to).reduce((s, m) => s + m.qty, 0);
+  const diffList = db.moves.filter((m) => m.type === 'count' && m.diff && m.at >= from && m.at < to);
 
   // 逐日/周/月序列
   const gran = to - from > 120 * DAY ? '月' : to - from > 45 * DAY ? '周' : '日';
@@ -120,22 +122,22 @@ export default function History({ db }) {
   const value = stockValue(db);
 
   const Chips = () => (
-    <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+    <div className="chips">
       {RANGES.map((r) => (
-        <button key={r.key} className={`mini ${rk === r.key ? 'ok' : ''}`} onClick={() => setRk(r.key)}>{r.label}</button>
+        <button key={r.key} className={rk === r.key ? 'on' : ''} onClick={() => setRk(r.key)}>{r.label}</button>
       ))}
-    </span>
+    </div>
   );
 
   return (
     <>
       <div className="nav">统计</div>
       <div className="page">
+        {/* 时间是第一分类：选了段，下面全部跟它走 */}
+        <div className="chips"><Chips /></div>
+
         <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-            <b>概览</b>
-            <Chips />
-          </div>
+          <b>{def.label} · 日报</b>
           <div className="tiles">
             <div className="tile"><div className="sub">营业额</div><b>¥{r1(revenue)}</b></div>
             <div className="tile"><div className="sub">订单数</div><b>{list.length}</b></div>
@@ -144,29 +146,29 @@ export default function History({ db }) {
             <div className="tile"><div className="sub">毛利率</div><b>{rate}%</b></div>
             <div className="tile"><div className="sub">入库支出</div><b>¥{r1(inSpend)}</b></div>
           </div>
-          <div className="sub" style={{ marginTop: 6 }}>毛利 = 营业额 − 菜品成本（按菜单里填的成本价算，没填的菜不计）</div>
+          <div className="sub" style={{ marginTop: 6 }}>
+            用量 {r1(useQtyRange)}{diffList.length ? ` · 盘点差异 ${diffList.length} 项` : ''} · 毛利 = 营业额 − 菜品成本（按菜单成本价，没填不计）
+          </div>
         </div>
 
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-            <b>营业额趋势</b>
+            <b>{def.label}趋势</b>
             <span className="sub" style={{ marginLeft: 'auto' }}>按{gran} · <span style={{ color: 'var(--brand)' }}>━</span> 营业额 <span style={{ color: 'var(--ok)' }}>┄</span> 毛利</span>
           </div>
           <Trend series={series} />
-          <div className="sub">合计营业额 ¥{r1(revenue)} · 毛利 ¥{r1(profit)} · 毛利率 {rate}%</div>
         </div>
 
         <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-            <b>菜品排行</b>
-            <Chips />
+          <b>{def.label} · 菜品排行</b>
+          <div style={{ marginTop: 4 }}>
+            <div className="sub">畅销 Top（按销量）</div>
+            {top.length ? <RankBars rows={top.map(([name, s]) => ({ name, qty: s.qty }))} />
+              : <div className="sub" style={{ padding: 6 }}>这段时间还没有清台的订单。</div>}
           </div>
-          <div className="sub">畅销 Top（按销量）</div>
-          {top.length ? <RankBars rows={top.map(([name, s]) => ({ name, qty: s.qty }))} />
-            : <div className="sub" style={{ padding: 6 }}>这段时间还没有清台的订单。</div>}
           {top.length > 0 && (
             <div className="sub" style={{ marginTop: 6 }}>
-              {top.slice(0, 3).map(([n, s]) => `${n} 毛¥${r1(s.margin)}`).join('，')}
+              最赚钱：{highMargin.map(([n, s]) => `${n} 毛¥${r1(s.margin)}`).join('，')}
               {noMargin.length > 0 && <div style={{ color: 'var(--danger)' }}>不赚钱：{noMargin.map(([n]) => n).join('，')}</div>}
             </div>
           )}
@@ -184,11 +186,15 @@ export default function History({ db }) {
         </div>
 
         <div className="card">
-          <b>库存日报</b>
+          <b>库存现状</b>
           <div className="sub" style={{ marginTop: 4 }}>
-            今日入库 {r1(inQtyToday)}（支出 ¥{r1(inSpendToday)}）· 今日用量 {r1(useQtyToday)} · 当前结余 ¥{r1(value)}
-            {low.length > 0 && <> · <b style={{ color: 'var(--danger)' }}>该补货：{low.map((m) => m.name).join('、')}</b></>}
+            结余 <b style={{ color: 'var(--ink)' }}>¥{r1(value)}</b> · 今日入库 {r1(inQtyToday)}（¥{r1(inSpendToday)}）· 今日用量 {r1(useQtyToday)}
           </div>
+          {low.length > 0 && (
+            <div className="sub" style={{ marginTop: 6, color: 'var(--danger)' }}>
+              🔔 该补货：{low.map((m) => `${m.name}（剩 ${r1(m.stock)}${m.unit}）`).join('、')}
+            </div>
+          )}
           {diffMoves.length > 0 && (
             <div className="sub" style={{ marginTop: 6 }}>
               今日盘点差异：{diffMoves.map((m) => `${m.matName} ${m.diff > 0 ? '+' : ''}${r1(m.diff)}${m.unit}`).join('，')}

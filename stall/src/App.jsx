@@ -10,6 +10,7 @@ import Stock from './pages/Stock.jsx';
 import Settings from './pages/Settings.jsx';
 import History from './pages/History.jsx';
 import Qr from './pages/Qr.jsx';
+import Receipt from './pages/Receipt.jsx';
 
 function parseRoute() {
   const h = (location.hash || '#/tables').replace(/^#\/?/, '');
@@ -48,6 +49,7 @@ export default function App() {
   let body = null;
   if (page === 'order' && param) body = <TakeOrder db={db} update={update} tableNo={+param} add={!!route.q.add} nav={nav} />;
   else if (page === 'table' && param) body = <Detail db={db} tableNo={+param} update={update} nav={nav} />;
+  else if (page === 'receipt' && param) body = <Receipt db={db} orderId={param} nav={nav} />;
   else if (page === 'qr') body = <Qr db={db} nav={nav} />;
   else if (page === 'menu') body = <MenuPage db={db} update={update} />;
   else if (page === 'stock') body = <Stock db={db} update={update} />;
