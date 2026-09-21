@@ -8,7 +8,7 @@ export default function History({ db }) {
   const revenue = today.reduce((s, o) => s + orderTotal(o), 0);
   const unpaid = today.filter((o) => dueTotal(o) > 0).length;
   const rank = {};
-  today.forEach((o) => o.items.forEach((i) => { rank[i.name] = (rank[i.name] || 0) + i.qty; }));
+  today.forEach((o) => (o.batches || []).forEach((b) => b.items.forEach((i) => { rank[i.name] = (rank[i.name] || 0) + i.qty; })));
   const top = Object.entries(rank).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   const byDay = {};
@@ -57,7 +57,7 @@ export default function History({ db }) {
                   <span className="sub" style={{ marginLeft: 8 }}>{new Date(o.closedAt).toTimeString().slice(0, 5)}</span>
                   <b style={{ marginLeft: 12 }}>¥{orderTotal(o)}</b>
                 </div>
-                <div className="sub">{o.items.map((i) => `${i.name}×${i.qty}`).join('，')}</div>
+                <div className="sub">{(o.batches || []).flatMap((b) => b.items).map((i) => `${i.name}×${i.qty}`).join('，')}</div>
               </div>
             ))}
           </div>

@@ -37,7 +37,14 @@ try {
   await page.locator('.tcard.dining').first().click();        // 进订单详情
   await page.waitForSelector('.btn.warn', { timeout: 5000 });
   ok('订单详情显示菜品与总价', (await page.locator('.row').count()) >= 2);
-  await page.locator('.mini.ok').click();                     // 一键全出 → 叫号
+  ok('订单按「笔」分组（第1笔）', (await page.textContent('.page')).includes('第1笔'));
+  await page.getByRole('button', { name: '标记结账' }).click(); // 本笔标记结账
+  await page.waitForSelector('.bdone', { timeout: 5000 });
+  ok('单笔标记结账生效', true);
+  await page.getByRole('button', { name: '取消标记' }).click();
+  await page.waitForFunction(() => !document.querySelector('.bdone'), null, { timeout: 5000 });
+  ok('取消标记可撤回', true);
+  await page.getByRole('button', { name: '一键全出' }).click(); // 一键全出 → 叫号
   await page.waitForSelector('.pill.served', { timeout: 5000 });
   ok('全部出餐后标记「已出餐」', true);
   await page.locator('.btn.warn').click();                    // 结账并清台
@@ -46,9 +53,19 @@ try {
   await page.waitForSelector('.tcard.idle', { timeout: 5000 });
   ok('清台后桌号回到「空闲」', true);
 
-  await page.locator('.tabbar button').nth(2).click();        // 统计
+  await page.locator('.nav .act.ghost').click();               // 经营层 → 管理
+  await page.waitForSelector('.adminbar', { timeout: 5000 });
+  ok('管理模式顶栏出现（回到经营）', (await page.textContent('.adminbar .back')).includes('回到经营'));
+  ok('经营态没有底部页签', (await page.locator('.tabbar').count()) === 0);
+  await page.locator('.adminbar button', { hasText: '统计' }).click();
   await page.waitForFunction(() => document.body.textContent.includes('今日'), { timeout: 5000 });
   ok('今日统计出现归档订单', (await page.locator('.card').count()) >= 1);
+  await page.locator('.adminbar button', { hasText: '库存' }).click();
+  await page.waitForFunction(() => document.body.textContent.includes('库存价值'), { timeout: 5000 });
+  ok('库存页出现（原料/价值/流水）', (await page.locator('.mrow, .row').count()) >= 1);
+  await page.locator('.adminbar .back').click();               // 回到经营
+  await page.waitForSelector('.tcard', { timeout: 5000 });
+  ok('「回到经营」一键返回桌台', true);
 
   await page.goto(`${url}customer.html`);                     // 顾客页：无二维码参数时的友好提示
   await page.waitForFunction(() => document.body.textContent.includes('二维码'), { timeout: 5000 });

@@ -51,6 +51,9 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; 
 .tcard .meta { margin-top: 8px; font-size: 13px; color: var(--sub); display: flex; gap: 10px; }
 .tcard .total { font-size: 18px; font-weight: 700; color: var(--ink); }
 .tcard .callflag { position: absolute; top: 10px; right: 10px; font-size: 12px; color: var(--danger); font-weight: 700; }
+.call-x { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%;
+          border: 1px solid #f0cfcb; background: #fff; color: var(--danger); font-size: 14px;
+          font-weight: 700; cursor: pointer; line-height: 1; }
 
 /* 通用行 */
 .row { display: flex; align-items: center; gap: 10px; padding: 13px 2px; border-bottom: 1px solid var(--line); }
@@ -92,6 +95,20 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; 
 .total-line { display: flex; justify-content: space-between; align-items: center; margin-top: 10px;
               padding-top: 10px; border-top: 1px dashed var(--line); font-size: 15px; }
 .total-line b { font-size: 20px; }
+
+/* 管理层顶栏：回到经营 + 分区切换 */
+.adminbar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 6px;
+            background: #fff; border-top: 1px solid var(--line); padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)); }
+.adminbar .back { border: 0; border-radius: 10px; background: var(--ok); color: #fff; font-size: 14px;
+                  font-weight: 700; padding: 10px 14px; cursor: pointer; }
+.adminbar button:not(.back) { flex: 1; border: 0; background: transparent; padding: 10px 0; font-size: 14px;
+                              color: #8a939d; cursor: pointer; border-radius: 10px; }
+.adminbar button.on { background: #e8eaee; color: var(--brand); font-weight: 700; }
+.nav .act.ghost { background: transparent; border: 1px solid #ffffff55; }
+
+/* 订单分笔 */
+.bdone { background: #e2f2e8; color: var(--ok); }
+.fold-arrow { color: var(--sub); font-size: 13px; }
 
 /* 菜单浏览排版（点线引导价目） */
 .mhead { display: flex; align-items: center; gap: 8px; padding: 12px 2px 4px; }

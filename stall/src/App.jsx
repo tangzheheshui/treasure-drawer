@@ -6,6 +6,7 @@ import Tables from './pages/Tables.jsx';
 import TakeOrder from './pages/TakeOrder.jsx';
 import Detail from './pages/Detail.jsx';
 import MenuPage from './pages/Menu.jsx';
+import Stock from './pages/Stock.jsx';
 import Settings from './pages/Settings.jsx';
 import History from './pages/History.jsx';
 import Qr from './pages/Qr.jsx';
@@ -17,6 +18,11 @@ function parseRoute() {
   const q = Object.fromEntries(new URLSearchParams(query || ''));
   return { seg, q };
 }
+
+// 两层模式（由路由推导，无需状态）：
+// 经营层 = 桌台 + 点单 + 订单（日常营业长时间停留，无任何管理入口干扰）
+// 管理层 = 菜品 / 库存 / 统计 / 设置（整理时才进，右上「回到经营」一键返回）
+const ADMIN = ['menu', 'stock', 'history', 'settings', 'qr'];
 
 export default function App() {
   const [db, setDb] = useState(null);
@@ -36,27 +42,26 @@ export default function App() {
   const nav = (h) => { location.hash = h; };
 
   const [page, param] = route.seg;
+  const admin = ADMIN.includes(page);
+
   let body = null;
-  let tab = page || 'tables';
   if (page === 'order' && param) body = <TakeOrder db={db} update={update} tableNo={+param} add={!!route.q.add} nav={nav} />;
   else if (page === 'table' && param) body = <Detail db={db} tableNo={+param} update={update} nav={nav} />;
+  else if (page === 'qr') body = <Qr db={db} nav={nav} />;
   else if (page === 'menu') body = <MenuPage db={db} update={update} />;
+  else if (page === 'stock') body = <Stock db={db} update={update} />;
   else if (page === 'history') body = <History db={db} />;
   else if (page === 'settings') body = <Settings db={db} update={update} nav={nav} />;
-  else if (page === 'qr') body = <Qr db={db} nav={nav} />;
-  else { tab = 'tables'; body = <Tables db={db} update={update} nav={nav} />; }
-
-  const isFlow = page === 'order' || page === 'table' || page === 'qr';
+  else body = <Tables db={db} update={update} nav={nav} onAdmin={() => nav('#/menu')} />;
 
   return (
     <div className="app">
       {body}
-      {!isFlow && (
-        <div className="tabbar">
-          {[['tables', '🧾', '桌台'], ['menu', '🍲', '菜品'], ['history', '📊', '统计'], ['settings', '⚙️', '设置']].map(([k, ico, label]) => (
-            <button key={k} className={tab === k ? 'on' : ''} onClick={() => nav(`#/${k}`)}>
-              <span className="ico">{ico}</span>{label}
-            </button>
+      {admin && (
+        <div className="adminbar">
+          <button className="back" onClick={() => nav('#/tables')}>● 回到经营</button>
+          {[['menu', '菜品'], ['stock', '库存'], ['history', '统计'], ['settings', '设置']].map(([k, label]) => (
+            <button key={k} className={page === k ? 'on' : ''} onClick={() => nav(`#/${k}`)}>{label}</button>
           ))}
         </div>
       )}

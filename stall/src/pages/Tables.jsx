@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { tableState, orderTotal, paidTotal, dueTotal, dueText, unservedCount, hasCall, activeOrder, submitOrder, sayItemsText, callTable } from '../store.js';
+import { tableState, orderTotal, paidTotal, dueTotal, dueText, unservedCount, hasCall, activeOrder, submitOrder, sayItemsText, callTable, answerCall } from '../store.js';
+import { answerRemote } from '../sync.js';
 import { say } from '../voice.js';
 
 const ST_NAME = { idle: '空闲', dining: '用餐中', pending: '待清台' };
 
-export default function Tables({ db, update, nav }) {
+export default function Tables({ db, update, nav, onAdmin }) {
   const [demo, setDemo] = useState(false);
   const nos = Array.from({ length: db.shop.tableCount }, (_, i) => i + 1);
 
@@ -48,12 +49,22 @@ export default function Tables({ db, update, nav }) {
 
   return (
     <>
-      <div className="nav">{db.shop.name || '摊主点单'}</div>
+      <div className="nav">{db.shop.name || '摊主点单'}
+        <button className="act ghost" onClick={onAdmin}>管理</button>
+      </div>
       <div className="page">
         {db.calls.length > 0 && (
           <div className="card" style={{ borderColor: '#b42318', borderWidth: 1, borderStyle: 'solid' }}>
-            <b style={{ color: 'var(--danger)' }}>🔔 {db.calls.map((c) => `${c.tableNo}号桌`).join('、')} 呼叫中</b>
-            <div className="sub">点开对应桌号即可消除提醒</div>
+            <b style={{ color: 'var(--danger)' }}>🔔 呼叫中</b>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+              {db.calls.map((c) => (
+                <span key={c.tableNo} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid #f0cfcb', borderRadius: 99, padding: '6px 8px 6px 12px' }}>
+                  <b style={{ color: 'var(--danger)' }}>{c.tableNo}号桌</b>
+                  <button className="mini" onClick={() => answerRemote(db, c.tableNo)}>消除</button>
+                </span>
+              ))}
+            </div>
+            <div className="sub" style={{ marginTop: 8 }}>点「消除」= 已去处理；点桌号卡片 = 进桌看订单（也会自动消除）</div>
           </div>
         )}
         <div className="grid">
@@ -68,7 +79,12 @@ export default function Tables({ db, update, nav }) {
               >
                 <span className="no">{no}号桌</span>
                 <span className="st">{ST_NAME[state]}</span>
-                {call && <span className="callflag">呼叫!</span>}
+                {call && (
+                  <button
+                    className="call-x"
+                    onClick={(e) => { e.stopPropagation(); answerRemote(db, no); }}
+                  >✕</button>
+                )}
                 {order && (() => {
                   const due = dueText(order);
                   return (
