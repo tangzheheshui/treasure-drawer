@@ -1,0 +1,94 @@
+* { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent; }
+html, body, #root { height: 100%; }
+body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; color: #1f2329;
+       background: #f2f3f5; overflow: hidden; }
+
+:root {
+  --bg: #f2f3f5; --card: #ffffff; --ink: #1f2329; --sub: #6b7280;
+  --line: #e6e8eb; --brand: #4e5969; --ok: #2b7a4b; --warn: #c2571a; --danger: #b42318;
+}
+
+.app { height: 100%; display: flex; flex-direction: column; }
+.page { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px calc(70px + env(safe-area-inset-bottom, 0px)); }
+.nav { flex: none; display: flex; align-items: center; gap: 8px; padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+       background: #4e5969; color: #fff; font-size: 17px; font-weight: 600; }
+.nav .back { border: 0; background: transparent; color: #fff; font-size: 15px; padding: 4px 8px 4px 0; cursor: pointer; }
+.nav .act { margin-left: auto; border: 0; background: #ffffff2b; color: #fff; font-size: 13px;
+            padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+
+.tabbar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; background: #fff;
+          border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.tabbar button { flex: 1; border: 0; background: transparent; padding: 9px 0 8px; font-size: 12px; color: #8a939d; cursor: pointer; }
+.tabbar button .ico { display: block; font-size: 20px; line-height: 1.2; }
+.tabbar button.on { color: var(--brand); font-weight: 600; }
+
+.card { background: var(--card); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+.h1 { font-size: 20px; font-weight: 700; }
+.sub { color: var(--sub); font-size: 13px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 12px;
+       padding: 12px 18px; font-size: 16px; font-weight: 600; cursor: pointer; background: #e8eaee; color: var(--ink); }
+.btn.primary { background: var(--brand); color: #fff; }
+.btn.ok { background: var(--ok); color: #fff; }
+.btn.warn { background: var(--warn); color: #fff; }
+.btn.danger { background: var(--danger); color: #fff; }
+.btn.block { display: flex; width: 100%; }
+.btn:disabled { opacity: 0.45; cursor: default; }
+
+/* 桌台 */
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.tcard { position: relative; border-radius: 14px; padding: 14px; background: var(--card); border: 2px solid transparent;
+         cursor: pointer; overflow: hidden; }
+.tcard.idle { border-color: var(--line); color: var(--sub); }
+.tcard.dining { border-color: var(--ok); }
+.tcard.pending { border-color: var(--warn); }
+.tcard.call { animation: pulse 0.9s ease-in-out infinite; border-color: var(--danger); }
+@keyframes pulse { 50% { background: #fdecea; } }
+.tcard .no { font-size: 22px; font-weight: 700; }
+.tcard .st { display: inline-block; margin-left: 8px; font-size: 12px; padding: 2px 8px; border-radius: 99px; }
+.tcard.idle .st { background: #e8eaee; }
+.tcard.dining .st { background: #e2f2e8; color: var(--ok); }
+.tcard.pending .st { background: #faeadf; color: var(--warn); }
+.tcard .meta { margin-top: 8px; font-size: 13px; color: var(--sub); display: flex; gap: 10px; }
+.tcard .total { font-size: 18px; font-weight: 700; color: var(--ink); }
+.tcard .callflag { position: absolute; top: 10px; right: 10px; font-size: 12px; color: var(--danger); font-weight: 700; }
+
+/* 通用行 */
+.row { display: flex; align-items: center; gap: 10px; padding: 13px 2px; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.row .grow { flex: 1; min-width: 0; }
+.row .name { font-size: 16px; font-weight: 600; }
+.row .name.dead { text-decoration: line-through; color: var(--sub); }
+.row .price { font-weight: 700; }
+.pill { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: #e8eaee; color: var(--sub); }
+.pill.served { background: #e2f2e8; color: var(--ok); }
+.pill.unserved { background: #faeadf; color: var(--warn); }
+.sqbtn { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: #fff;
+         font-size: 17px; cursor: pointer; color: var(--ink); }
+.sqbtn.del { color: var(--danger); border-color: #f0d2ce; }
+.mini { border: 0; background: #e8eaee; color: var(--ink); font-size: 13px; padding: 7px 12px; border-radius: 9px; cursor: pointer; }
+.mini.ok { background: #e2f2e8; color: var(--ok); font-weight: 600; }
+
+/* 点单 */
+.catbar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; }
+.catbar button { flex: none; border: 1px solid var(--line); background: #fff; border-radius: 99px;
+                 padding: 8px 16px; font-size: 14px; cursor: pointer; color: var(--ink); }
+.catbar button.on { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
+.cartbar { position: absolute; left: 0; right: 0; bottom: calc(0px + env(safe-area-inset-bottom, 0px));
+           display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #fff;
+           border-top: 1px solid var(--line); }
+.cartbar .sum { font-size: 20px; font-weight: 700; }
+.cartbar .btn { margin-left: auto; padding: 12px 26px; }
+
+ input.f { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 15px; width: 100%; background: #fff; }
+.label { font-size: 13px; color: var(--sub); margin: 12px 0 6px; }
+
+/* 弹层遮罩 */
+.mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.modal { width: 84%; max-width: 340px; background: #fff; border-radius: 16px; padding: 18px 16px; }
+.modal h3 { font-size: 17px; margin-bottom: 10px; }
+.modal .mfoot { display: flex; gap: 10px; margin-top: 16px; }
+.modal .mfoot .btn { flex: 1; }
+
+.total-line { display: flex; justify-content: space-between; align-items: center; margin-top: 10px;
+              padding-top: 10px; border-top: 1px dashed var(--line); font-size: 15px; }
+.total-line b { font-size: 20px; }

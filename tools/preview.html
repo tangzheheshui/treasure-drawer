@@ -47,8 +47,8 @@
   </div>
   <div class="panel">
     <h1>百宝抽屉 · 工具预览台</h1>
-    <div class="hint">左边是 390×844 的真机版式，点右边切换工具。计分板与尺子（横拿）会自动横过来。</div>
-    <div class="grp">五个工具（尺子多一个横拿预览）</div>
+    <div class="hint">左边是 390×844 的真机版式，点右边切换工具/产品。计分板与尺子（横拿）会自动横过来。</div>
+    <div class="grp">工具与产品（尺子多一个横拿预览）</div>
     <div id="tools" style="display:flex; flex-direction:column; gap:10px;"></div>
     <div class="hint" id="tip" style="margin-top:10px"></div>
   </div>
@@ -65,7 +65,9 @@
     { name: '📞 模拟来电', url: 'http://localhost:5186/', land: false,
       tip: '填来电人、几秒后来电，点「开始模拟」；到点 iPhone 锁屏来电（铃声+震动），接听进通话计时。' },
     { name: '🎲 摇骰子', url: 'http://localhost:5187/', land: false,
-      tip: '点「摇」：骰盅盖下摇、掀开报总点数，物理翻滚带碰撞声；上方 −／＋ 调骰子数（默认 5）。' },
+      tip: '点「摇」：骰盅盖下摇、扣住保密；在画面上上划开盅报点数、下划盖回；盖着可直接再摇。上方 −／＋ 调骰子数（默认 5）。' },
+    { name: '🧾 摊主点单', url: 'http://localhost:5188/', land: false,
+      tip: '点空闲桌号直接点单提交（语音播报）；点用餐中桌号看出餐/加菜/清台。「模拟顾客」可演示新单/加单/呼叫。' },
   ];
 
   const frame = document.getElementById('app');
