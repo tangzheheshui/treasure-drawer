@@ -47,7 +47,10 @@ export default function App() {
   const admin = ADMIN.includes(page);
 
   let body = null;
-  if (page === 'order' && param) body = <TakeOrder db={db} update={update} tableNo={+param} add={!!route.q.add} nav={nav} />;
+  if (page === 'order' && param) body = param === 'walk'
+    ? <TakeOrder db={db} update={update} walk nav={nav} />
+    : <TakeOrder db={db} update={update} tableNo={+param} add={!!route.q.add} nav={nav} />;
+  else if (page === 'o' && param) body = <Detail db={db} orderId={param} update={update} nav={nav} />;
   else if (page === 'table' && param) body = <Detail db={db} tableNo={+param} update={update} nav={nav} />;
   else if (page === 'receipt' && param) body = <Receipt db={db} orderId={param} nav={nav} />;
   else if (page === 'qr') body = <Qr db={db} nav={nav} />;
@@ -62,7 +65,7 @@ export default function App() {
       {body}
       {admin && (
         <div className="adminbar">
-          <button className="back" onClick={() => nav('#/tables')}>● 开始点菜</button>
+          <button className="back" onClick={() => nav('#/tables')}>● 工作台</button>
           {[['menu', '菜品'], ['stock', '库存'], ['history', '统计'], ['settings', '设置']].map(([k, label]) => (
             <button key={k} className={page === k ? 'on' : ''} onClick={() => nav(`#/${k}`)}>{label}</button>
           ))}

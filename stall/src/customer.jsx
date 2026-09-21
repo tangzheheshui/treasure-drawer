@@ -7,9 +7,13 @@ import './customer.css';
 
 const qs = new URLSearchParams(location.search);
 const shopId = qs.get('s');
-const table = Number(qs.get('t') || 0);
+const table = Number(qs.get('t') || 0); // 0 = 无桌号（自取/外带散单）
 const base = qs.get('b') || 'https://auth.tangzheheshui.cn';
 const SESS = 'stall-cust-session';
+
+// 单号：4 位不易混淆字符，数据库唯一索引兜底不重复
+const CS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const genCode = () => Array.from({ length: 4 }, () => CS[Math.floor(Math.random() * CS.length)]).join('');
 
 const App = () => {
   const [shop, setShop] = useState(null);
@@ -55,10 +59,18 @@ const App = () => {
     const items = lines.map(([, i]) => ({ name: i.name, price: i.price, qty: i.qty, note: '' }));
     if (!items.length) return;
     const pb = new PocketBase(base);
-    try {
-      await pb.collection('stall_orders').create({ shop: shopId, table, items, total });
-    } catch { /* 网络问题也先本地记录，摊主那边以最终同步为准 */ }
-    const next = [...mine, { items, total, at: Date.now() }];
+    let code = genCode();
+    let recId = null;
+    for (let tries = 0; tries < 3; tries++) {
+      try {
+        const rec = await pb.collection('stall_orders').create({ shop: shopId, table, code, items, total });
+        recId = rec.id;
+        break;
+      } catch {
+        code = genCode(); // 单号撞了就换一个重试（唯一索引兜底）
+      }
+    }
+    const next = [...mine, { id: recId, code, items, total, at: Date.now() }];
     setMine(next);
     sessionStorage.setItem(SESS, JSON.stringify(next));
     setCart({});
@@ -82,7 +94,7 @@ const App = () => {
     <div className="c-wrap">
       <div className="c-head">
         <b>{shop.name}</b>
-        <span>{table}号桌</span>
+        <span>{table ? `${table}号桌` : '自取单'}</span>
       </div>
 
       {unserved !== undefined && (
@@ -96,12 +108,23 @@ const App = () => {
           <div className="c-banner">✅ 订单已提交<br /><small>请到摊位前付款或使用摊主提供的收款方式</small></div>
           <div className="c-card">
             <b>我点的东西</b>
-            {mine.map((m, k) => (
-              <div key={k} className="c-line">
-                <span>{m.items.map((i) => `${i.name}×${i.qty}`).join('，')}</span>
-                <b>¥{m.total}</b>
-              </div>
-            ))}
+            {mine.map((m, k) => {
+              const tot = m.items.reduce((s, i) => s + i.qty, 0);
+              const rem = m.id ? (shop.served || {})[m.id] : undefined;
+              return (
+                <div key={k} style={{ borderBottom: '1px solid #eee9dd', paddingBottom: 6, marginBottom: 6 }}>
+                  <div className="c-line">
+                    <span>{m.code ? `单号 ${m.code} · ` : ''}{m.items.map((i) => `${i.name}×${i.qty}`).join('，')}</span>
+                    <b>¥{m.total}</b>
+                  </div>
+                  {!table && rem !== undefined && (
+                    <div className={rem === 0 ? 'c-tip' : 'c-sub'} style={{ color: rem === 0 ? '#2b7a4b' : '#c2571a' }}>
+                      {rem === 0 ? '✅ 这单已全部出餐' : `🍳 已出 ${tot - rem}/${tot} 份`}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             <div className="c-total">合计 <b>¥{mineTotal}</b></div>
             <div className="c-tip">想加菜？随时再点，会并到这桌的账单里。</div>
           </div>

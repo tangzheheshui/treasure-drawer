@@ -106,19 +106,30 @@ export function tableState(db, no) {
 export const hasCall = (db, no) => db.calls.some((c) => c.tableNo === no);
 
 // ── 动作 ──
-export function submitOrder(db, tableNo, items, isAdd, guests) {
+// 三种经营方式：有桌（桌号生命周期）/ 无桌（全散单）/ 混合（桌号+流动散客）。
+// 散单 mode='walk' 不占桌，一单一结；外卖/自取将来也是散单的变体。
+export function submitOrder(db, target, items, isAdd, guests) {
+  const isWalk = typeof target === 'object' && target !== null && target.mode === 'walk';
+  const tableNo = isWalk ? 0 : target;
   const o = activeOrder(db, tableNo);
   const lined = items.map((i) => {
     const dish = db.dishes.find((x) => x.name === i.name); // 下单时快照成本价（毛利统计的基础）
     return { ...i, id: uid(), served: false, cost: Number(dish?.cost ?? i.cost ?? 0) };
   });
-  const batch = { id: uid(), at: Date.now(), items: lined, settled: false };
+  const batch = { id: uid(), at: Date.now(), items: lined, settled: false, pbId: isWalk ? target.pbId : undefined };
+  if (isWalk) {
+    const order = { id: uid(), tableNo: 0, mode: 'walk', type: 'takeout', code: target.code, status: 'active', batches: [batch], guests: 0, createdAt: Date.now(), closedAt: null };
+    db.orders.push(order);
+    return order;
+  }
   if (o) {
     o.batches.push(batch);
   } else {
-    db.orders.push({ id: uid(), tableNo, status: 'active', type: 'dine', batches: [batch], guests: Number(guests) || 0, createdAt: Date.now(), closedAt: null });
+    const order = { id: uid(), tableNo, status: 'active', type: 'dine', mode: 'table', batches: [batch], guests: Number(guests) || 0, createdAt: Date.now(), closedAt: null };
+    db.orders.push(order);
+    return order;
   }
-  return lined;
+  return o;
 }
 
 export function sayItemsText(tableNo, items, prefix) {
@@ -159,13 +170,22 @@ export function removeItem(db, orderId, itemId) {
 
 export function clearTable(db, tableNo) {
   const o = activeOrder(db, tableNo);
+  if (o) clearById(db, o.id);
+  db.calls = db.calls.filter((c) => c.tableNo !== tableNo);
+}
+
+// 散单/桌单通用结清
+export function clearById(db, orderId) {
+  const o = db.orders.find((x) => x.id === orderId);
   if (o) {
-    o.batches.forEach((b) => { b.settled = true; }); // 清台 = 默认全部结清
+    o.batches.forEach((b) => { b.settled = true; }); // 结账 = 默认全部结清
     o.status = 'closed';
     o.closedAt = Date.now();
   }
-  db.calls = db.calls.filter((c) => c.tableNo !== tableNo);
 }
+
+// 散单（流动客/档口）：活跃的按先后排
+export const walkOrders = (db) => db.orders.filter((o) => o.status === 'active' && o.mode === 'walk').sort((a, b) => a.createdAt - b.createdAt);
 
 export function callTable(db, tableNo, pbId) {
   db.calls = db.calls.filter((c) => c.tableNo !== tableNo);
@@ -176,11 +196,16 @@ export function answerCall(db, tableNo) {
   db.calls = db.calls.filter((c) => c.tableNo !== tableNo);
 }
 
-// 顾客 H5 实时进单：合并进该桌活跃订单（首次=新单，其后=加单），返回是加单还是新单
-export function ingestRemoteOrder(db, tableNo, items) {
+// 顾客 H5 实时进单：桌号>0 并入桌单；桌号=0 自取散单（带云端单号，出餐进度按单发布）
+export function ingestRemoteOrder(db, tableNo, items, pbId, code) {
+  if (tableNo === 0) {
+    const o = submitOrder(db, { mode: 'walk', pbId, code }, items, true);
+    o.code = code;
+    return 'takeout';
+  }
   const isAdd = !!activeOrder(db, tableNo);
-  submitOrder(db, tableNo, items.map((i) => ({ name: i.name, price: i.price, qty: i.qty, note: i.note || '' })), true);
-  return isAdd;
+  submitOrder(db, tableNo, items, true);
+  return isAdd ? 'add' : 'new';
 }
 
 // ── 库存 ──

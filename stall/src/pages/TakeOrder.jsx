@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { submitOrder, sayItemsText } from '../store.js';
 import { say } from '../voice.js';
 
-export default function TakeOrder({ db, update, tableNo, add, nav }) {
+export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
   const [cat, setCat] = useState('all');
   const [cart, setCart] = useState({}); // dishId -> { name, price, qty, note }
   const [showCart, setShowCart] = useState(false);
@@ -29,20 +29,27 @@ export default function TakeOrder({ db, update, tableNo, add, nav }) {
   const submit = () => {
     if (!lines.length) return;
     const items = lines.map(([, i]) => ({ name: i.name, price: i.price, qty: i.qty, note: i.note || '' }));
-    update((d) => submitOrder(d, tableNo, items, add, guests));
+    if (walk) {
+      let newId;
+      update((d) => { const o = submitOrder(d, { mode: 'walk' }, items, true); newId = o.id; });
+      say(`新散单，${items.map((i) => `${i.name}${i.qty}份`).join('，')}`);
+      nav(`#/o/${newId}`);
+      return;
+    }
+    const order = (() => { let r; update((d) => { r = submitOrder(d, tableNo, items, add, guests); }); return r; })();
     say(sayItemsText(tableNo, items, add ? '加单' : ''));
-    nav(add ? `#/table/${tableNo}` : '#/tables');
+    nav(add ? `#/o/${order.id}` : '#/tables');
   };
 
   return (
     <>
       <div className="nav">
-        <button className="back" onClick={() => nav(add ? `#/table/${tableNo}` : '#/tables')}>← 返回</button>
-        {tableNo}号桌 {add ? '加菜' : '点单'}
+        <button className="back" onClick={() => nav(walk ? '#/tables' : add ? `#/table/${tableNo}` : '#/tables')}>← 返回</button>
+        {walk ? '散客点单' : `${tableNo}号桌 ${add ? '加菜' : '点单'}`}
         <button className="act" onClick={() => setShowCart(true)}>购物车{count ? ` ${count}` : ''}</button>
       </div>
       <div className="page">
-        {!add && (
+        {!add && !walk && (
           <div className="card" style={{ display: 'flex', alignItems: 'center', padding: '10px 14px' }}>
             <b>人数</b>
             <span className="sub" style={{ marginLeft: 8 }}>开台先选几位</span>

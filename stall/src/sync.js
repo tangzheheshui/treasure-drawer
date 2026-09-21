@@ -38,14 +38,21 @@ export async function ensureShop(db) {
   return rec;
 }
 
-// 每桌出餐快照：tableNo -> 未出份数（发布上云，顾客 H5 实时看出餐进度）
+// 出餐快照：桌单按桌号（未出份数）；自取单按云端记录 id（顾客页按单刷新进度）
 export function servedSnapshot(db) {
   const out = {};
   db.orders.filter((o) => o.status === 'active').forEach((o) => {
-    out[o.tableNo] = unservedCount(o);
+    if (o.mode === 'walk') {
+      (o.batches || []).forEach((b) => {
+        if (b.pbId) out[b.pbId] = unservedItems(b);
+      });
+    } else {
+      out[o.tableNo] = unservedCount(o);
+    }
   });
   return out;
 }
+const unservedItems = (b) => b.items.filter((i) => !i.served).reduce((s, i) => s + i.qty, 0);
 
 export async function publishMenu(db) {
   if (!isOnline(db)) return;
@@ -69,18 +76,29 @@ export function subscribeRealtime(db, onChange) {
     if (e.action !== 'create' || e.record.shop !== shopId) return;
     const tableNo = Number(e.record.table);
     const items = e.record.items || [];
-    let fresh = false, isAdd = false;
+    const code = e.record.code;
+    let fresh = false, isAdd = false, isTakeout = false;
     mutate((d) => {
       d.seen = d.seen || [];
-      if (d.seen.includes(e.record.id) || tableNo < 1 || tableNo > d.shop.tableCount) return;
+      if (d.seen.includes(e.record.id)) return;
+      if (tableNo === 0) { // 自取/外带散单：不占桌，独立一单
+        d.seen.push(e.record.id);
+        if (d.seen.length > 500) d.seen = d.seen.slice(-300);
+        submitOrder(d, { mode: 'walk', pbId: e.record.id, code }, items, true);
+        isTakeout = true; fresh = true;
+        return;
+      }
+      if (tableNo < 1 || tableNo > d.shop.tableCount) return;
       d.seen.push(e.record.id);
       if (d.seen.length > 500) d.seen = d.seen.slice(-300);
       isAdd = !!activeOrder(d, tableNo);
       submitOrder(d, tableNo, items, true);
       fresh = true;
     });
-    if (fresh && items.length) say(sayItemsText(tableNo, items, isAdd ? '加单' : ''));
-    onChange && onChange();
+    if (fresh && items.length) {
+      say(isTakeout ? `收到自取单，${items.map((i) => `${i.name}${i.qty}份`).join('，')}` : sayItemsText(tableNo, items, isAdd ? '加单' : ''));
+      onChange && onChange();
+    }
   }));
   subs.push(c.collection('stall_calls').subscribe('*', (e) => {
     if (e.record.shop !== shopId) return;

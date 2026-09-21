@@ -41,6 +41,7 @@ const collections = [
       { name: 'name', type: 'text' },
       { name: 'tableCount', type: 'number' },
       { name: 'menu', type: 'json' },
+      { name: 'served', type: 'json' }, // 每桌/每自取单的出餐进度快照
     ],
     listRule: '', viewRule: '',
     createRule: "@request.auth.id != '' && @request.body.owner = @request.auth.id",
@@ -54,7 +55,9 @@ const collections = [
       { name: 'table', type: 'number', required: true },
       { name: 'items', type: 'json' },
       { name: 'total', type: 'number' },
+      { name: 'code', type: 'text' }, // 单号：店内唯一（索引兜底），用于叫号/小票
     ],
+    indexes: ['CREATE UNIQUE INDEX IF NOT EXISTS idx_stall_orders_shop_code ON stall_orders (shop, code)'],
     listRule: '', viewRule: '', createRule: '', updateRule: null, deleteRule: null,
   },
   {

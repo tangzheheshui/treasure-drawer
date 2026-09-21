@@ -20,7 +20,7 @@ export default function Receipt({ db, orderId, nav }) {
       <div className="page">
         <div className="receipt">
           <div className="r-shop">{db.shop.name}</div>
-          <div className="r-line">桌号：{o.tableNo}号桌{o.guests ? `（${o.guests}人）` : ''}</div>
+          <div className="r-line">{o.mode === 'walk' ? `单号：${o.code || '散客'}` : `桌号：${o.tableNo}号桌${o.guests ? `（${o.guests}人）` : ''}`}</div>
           <div className="r-line">时间：{new Date(o.closedAt || Date.now()).toLocaleString('zh-CN')}</div>
           <div className="r-div">--------------------------------</div>
           {items.map((i) => (

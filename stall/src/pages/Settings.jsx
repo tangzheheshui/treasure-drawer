@@ -44,13 +44,24 @@ export default function Settings({ db, update, nav }) {
           <div className="label" style={{ marginTop: 0 }}>店铺名称</div>
           <input className="f" value={name} onChange={(e) => setName(e.target.value)}
                  onBlur={() => update((d) => { d.shop.name = name.trim() || '我的小摊'; })} />
-          <div className="label">桌号数量（1–20）</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button className="sqbtn" onClick={() => update((d) => { d.shop.tableCount = Math.max(1, d.shop.tableCount - 1); })}>−</button>
-            <b style={{ fontSize: 20 }}>{db.shop.tableCount}</b>
-            <button className="sqbtn" onClick={() => update((d) => { d.shop.tableCount = Math.min(20, d.shop.tableCount + 1); })}>＋</button>
-            {online && <button className="mini ok" onClick={() => nav('#/qr')}>生成桌号二维码</button>}
+          <div className="label">经营方式</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[['table', '有桌'], ['walk', '无桌档口'], ['mix', '桌子+散客']].map(([k, label]) => (
+              <button key={k} className={`mini ${(db.shop.mode || 'mix') === k ? 'ok' : ''}`} style={{ flex: 1, padding: '10px 0' }}
+                      onClick={() => update((d) => { d.shop.mode = k; })}>{label}</button>
+            ))}
           </div>
+          {(db.shop.mode || 'mix') !== 'walk' && (
+            <>
+              <div className="label">桌号数量（1–20）</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button className="sqbtn" onClick={() => update((d) => { d.shop.tableCount = Math.max(1, d.shop.tableCount - 1); })}>−</button>
+                <b style={{ fontSize: 20 }}>{db.shop.tableCount}</b>
+                <button className="sqbtn" onClick={() => update((d) => { d.shop.tableCount = Math.min(20, d.shop.tableCount + 1); })}>＋</button>
+                {online && <button className="mini ok" onClick={() => nav('#/qr')}>生成桌号二维码</button>}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="card">

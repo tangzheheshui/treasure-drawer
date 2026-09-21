@@ -59,7 +59,7 @@ try {
 
   await page.locator('.nav .act.ghost').click();               // 经营层 → 管理
   await page.waitForSelector('.adminbar', { timeout: 5000 });
-  ok('管理模式底栏出现（开始点菜）', (await page.textContent('.adminbar .back')).includes('开始点菜'));
+  ok('管理模式底栏出现（工作台）', (await page.textContent('.adminbar .back')).includes('工作台'));
   ok('经营态没有底部页签', (await page.locator('.tabbar').count()) === 0);
   await page.locator('.adminbar button', { hasText: '统计' }).click();
   await page.waitForFunction(() => document.body.textContent.includes('订单数1'), { timeout: 5000 });
