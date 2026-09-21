@@ -6,6 +6,7 @@ export default function TakeOrder({ db, update, tableNo, add, nav }) {
   const [cat, setCat] = useState('all');
   const [cart, setCart] = useState({}); // dishId -> { name, price, qty, note }
   const [showCart, setShowCart] = useState(false);
+  const [guests, setGuests] = useState(4);
 
   const dishes = useMemo(
     () => db.dishes.filter((d) => cat === 'all' || d.catId === cat),
@@ -28,7 +29,7 @@ export default function TakeOrder({ db, update, tableNo, add, nav }) {
   const submit = () => {
     if (!lines.length) return;
     const items = lines.map(([, i]) => ({ name: i.name, price: i.price, qty: i.qty, note: i.note || '' }));
-    update((d) => submitOrder(d, tableNo, items, add));
+    update((d) => submitOrder(d, tableNo, items, add, guests));
     say(sayItemsText(tableNo, items, add ? '加单' : ''));
     nav(add ? `#/table/${tableNo}` : '#/tables');
   };
@@ -41,6 +42,17 @@ export default function TakeOrder({ db, update, tableNo, add, nav }) {
         <button className="act" onClick={() => setShowCart(true)}>购物车{count ? ` ${count}` : ''}</button>
       </div>
       <div className="page">
+        {!add && (
+          <div className="card" style={{ display: 'flex', alignItems: 'center', padding: '10px 14px' }}>
+            <b>人数</b>
+            <span className="sub" style={{ marginLeft: 8 }}>开台先选几位</span>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
+              <button className="sqbtn" onClick={() => setGuests(Math.max(1, guests - 1))}>−</button>
+              <b style={{ fontSize: 18, minWidth: 26, textAlign: 'center' }}>{guests}</b>
+              <button className="sqbtn" onClick={() => setGuests(Math.min(50, guests + 1))}>＋</button>
+            </div>
+          </div>
+        )}
         <div className="catbar">
           <button className={cat === 'all' ? 'on' : ''} onClick={() => setCat('all')}>全部</button>
           {cats.map((c) => (

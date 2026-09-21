@@ -55,20 +55,20 @@ try {
 
   await page.locator('.nav .act.ghost').click();               // 经营层 → 管理
   await page.waitForSelector('.adminbar', { timeout: 5000 });
-  ok('管理模式顶栏出现（回到经营）', (await page.textContent('.adminbar .back')).includes('回到经营'));
+  ok('管理模式底栏出现（开始点菜）', (await page.textContent('.adminbar .back')).includes('开始点菜'));
   ok('经营态没有底部页签', (await page.locator('.tabbar').count()) === 0);
   await page.locator('.adminbar button', { hasText: '统计' }).click();
   await page.waitForFunction(() => document.body.textContent.includes('订单数1'), { timeout: 5000 });
-  ok('今日统计出现归档订单（已收齐）', (await page.textContent('.page')).includes('已收齐'));
   const statText = await page.textContent('.page');
-  ok('今日概览含客单价/毛利/库存结余', statText.includes('客单价') && statText.includes('今日毛利') && statText.includes('库存结余'));
+  ok('概览随时间段（订单数/客单价/毛利率）', statText.includes('订单数1') && statText.includes('客单价') && statText.includes('毛利率'));
+  ok('趋势折线图渲染', (await page.locator('svg path').count()) >= 2);
   ok('菜品排行含畅销与滞销', statText.includes('畅销') && statText.includes('卖不动'));
   await page.locator('.adminbar button', { hasText: '库存' }).click();
   await page.waitForFunction(() => document.body.textContent.includes('库存价值'), { timeout: 5000 });
   ok('库存页出现（原料/价值/流水）', (await page.locator('.mrow, .row').count()) >= 1);
-  await page.locator('.adminbar .back').click();               // 回到经营
+  await page.locator('.adminbar .back').click();               // 开始点菜 → 回桌台
   await page.waitForSelector('.tcard', { timeout: 5000 });
-  ok('「回到经营」一键返回桌台', true);
+  ok('「开始点菜」一键返回桌台', true);
 
   await page.goto(`${url}customer.html`);                     // 顾客页：无二维码参数时的友好提示
   await page.waitForFunction(() => document.body.textContent.includes('二维码'), { timeout: 5000 });

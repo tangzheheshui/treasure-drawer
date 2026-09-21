@@ -10,10 +10,11 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; 
 
 .app { height: 100%; display: flex; flex-direction: column; }
 .page { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px calc(70px + env(safe-area-inset-bottom, 0px)); }
-.nav { flex: none; display: flex; align-items: center; gap: 8px; padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+.nav { flex: none; position: relative; display: flex; align-items: center; justify-content: center;
+       padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
        background: #4e5969; color: #fff; font-size: 17px; font-weight: 600; }
-.nav .back { border: 0; background: transparent; color: #fff; font-size: 15px; padding: 4px 8px 4px 0; cursor: pointer; }
-.nav .act { margin-left: auto; border: 0; background: #ffffff2b; color: #fff; font-size: 13px;
+.nav .back { position: absolute; left: 10px; border: 0; background: transparent; color: #fff; font-size: 15px; padding: 4px 8px 4px 0; cursor: pointer; }
+.nav .act { position: absolute; right: 10px; border: 0; background: #ffffff2b; color: #fff; font-size: 13px;
             padding: 6px 12px; border-radius: 8px; cursor: pointer; }
 
 .tabbar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; background: #fff;
@@ -96,7 +97,7 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; 
               padding-top: 10px; border-top: 1px dashed var(--line); font-size: 15px; }
 .total-line b { font-size: 20px; }
 
-/* 管理层顶栏：回到经营 + 分区切换 */
+/* 管理层底栏：开始点菜 + 分区切换 */
 .adminbar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 6px;
             background: #fff; border-top: 1px solid var(--line); padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)); }
 .adminbar .back { border: 0; border-radius: 10px; background: var(--ok); color: #fff; font-size: 14px;
@@ -105,6 +106,10 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; 
                               color: #8a939d; cursor: pointer; border-radius: 10px; }
 .adminbar button.on { background: #e8eaee; color: var(--brand); font-weight: 700; }
 .nav .act.ghost { background: transparent; border: 1px solid #ffffff55; }
+
+/* 菜品分类色点 */
+.catdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.mrow .price { color: #2b7a4b; font-weight: 700; }
 
 /* 统计瓦片 */
 .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }

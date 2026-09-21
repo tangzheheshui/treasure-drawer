@@ -34,12 +34,13 @@ export default function MenuPage({ db, update }) {
                 onClick={() => setEditing(!editing)}>{editing ? '✓ 完成' : '编辑'}</button>
       </div>
       <div className="page">
-        {db.cats.map((c) => {
+        {db.cats.map((c, ci) => {
           const dishes = db.dishes.filter((d) => d.catId === c.id);
+          const CAT_COLORS = ['#c2571a', '#2b7a4b', '#8a5a9e', '#4e5969', '#b42318', '#b08a2a'];
           return (
             <div className="card" key={c.id} style={{ paddingTop: 4, paddingBottom: editing ? 12 : 4 }}>
               <div className="mhead">
-                <b>{c.name}</b>
+                <b><span className="catdot" style={{ background: CAT_COLORS[ci % CAT_COLORS.length] }} />{c.name}</b>
                 <span className="sub">{dishes.length} 道</span>
                 <span className="line" />
                 {editing && (

@@ -48,7 +48,7 @@ export default function Detail({ db, update, tableNo, nav }) {
       <div className="page">
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <b style={{ fontSize: 17 }}>{batches.length} 笔 · {total} 元</b>
+            <b style={{ fontSize: 17 }}>{batches.length} 笔 · {total} 元{order.guests ? ` · ${order.guests}人` : ''}</b>
             {unserved > 0 ? <span className="pill unserved" style={{ marginLeft: 8 }}>未出 {unserved} 份</span>
                           : <span className="pill served" style={{ marginLeft: 8 }}>已全部出餐</span>}
             <button className="mini ok" style={{ marginLeft: 'auto' }} disabled={!unserved} onClick={() => { update((d) => serveAll(d, order.id)); say(`${tableNo}号桌取餐`); }}>一键全出</button>

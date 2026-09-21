@@ -106,7 +106,7 @@ export function tableState(db, no) {
 export const hasCall = (db, no) => db.calls.some((c) => c.tableNo === no);
 
 // ── 动作 ──
-export function submitOrder(db, tableNo, items, isAdd) {
+export function submitOrder(db, tableNo, items, isAdd, guests) {
   const o = activeOrder(db, tableNo);
   const lined = items.map((i) => {
     const dish = db.dishes.find((x) => x.name === i.name); // 下单时快照成本价（毛利统计的基础）
@@ -116,7 +116,7 @@ export function submitOrder(db, tableNo, items, isAdd) {
   if (o) {
     o.batches.push(batch);
   } else {
-    db.orders.push({ id: uid(), tableNo, status: 'active', batches: [batch], createdAt: Date.now(), closedAt: null });
+    db.orders.push({ id: uid(), tableNo, status: 'active', batches: [batch], guests: Number(guests) || 0, createdAt: Date.now(), closedAt: null });
   }
   return lined;
 }
@@ -184,8 +184,9 @@ export function ingestRemoteOrder(db, tableNo, items) {
 }
 
 // ── 库存 ──
-export function moveLog(db, m, type, qty, extra = {}) {
-  db.moves.unshift({ id: uid(), matId: m.id, matName: m.name, unit: m.unit, type, qty, before: m.stock, after: m.stock, at: Date.now(), ...extra });
+// 用量可补记到最近某一天（offset 0=今天 … -6=6天前）；流水按天聚合
+export function moveLog(db, m, type, qty, extra = {}, at = Date.now()) {
+  db.moves.unshift({ id: uid(), matId: m.id, matName: m.name, unit: m.unit, type, qty, before: m.stock, after: m.stock, at, ...extra });
 }
 
 export function addMat(db, { name, unit, cat, safe, stock, price }) {
@@ -207,11 +208,13 @@ export function stockIn(db, matId, qty, price) {
   moveLog(db, m, 'in', qty, { price: price || undefined });
 }
 
-export function stockUse(db, matId, qty) {
+export function stockUse(db, matId, qty, offset = 0) {
   const m = db.mats.find((x) => x.id === matId);
   if (!m || !(qty > 0)) return;
   m.stock -= qty;
-  moveLog(db, m, 'use', qty);
+  // 补记到过去某天：那天 + 现在的钟点，且不晚于当前时刻
+  const at = offset ? Math.min(Date.now(), dayStartTs(offset) + (Date.now() - dayStartTs(0))) : Date.now();
+  moveLog(db, m, 'use', qty, {}, at);
 }
 
 // 盘点：填实际剩余，倒推用量，差额自动记差异（不填原因）

@@ -90,6 +90,7 @@ export default function Tables({ db, update, nav, onAdmin }) {
                   return (
                     <div className="meta">
                       <span className="total">¥{orderTotal(order)}</span>
+                      {order.guests > 0 && <span>{order.guests}人</span>}
                       {unservedCount(order) > 0 && <span>未出 {unservedCount(order)} 份</span>}
                       {paidTotal(order) > 0 && <span style={{ color: due.cls === 'danger' ? 'var(--danger)' : due.cls === 'warn' ? 'var(--warn)' : 'var(--ok)' }}>{due.text}</span>}
                     </div>

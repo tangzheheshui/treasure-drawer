@@ -60,7 +60,7 @@ export default function App() {
       {body}
       {admin && (
         <div className="adminbar">
-          <button className="back" onClick={() => nav('#/tables')}>● 回到经营</button>
+          <button className="back" onClick={() => nav('#/tables')}>● 开始点菜</button>
           {[['menu', '菜品'], ['stock', '库存'], ['history', '统计'], ['settings', '设置']].map(([k, label]) => (
             <button key={k} className={page === k ? 'on' : ''} onClick={() => nav(`#/${k}`)}>{label}</button>
           ))}
