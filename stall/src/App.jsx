@@ -37,6 +37,7 @@ export default function App() {
   }, []);
 
   if (!db) return null;
+  if (typeof window !== 'undefined') window.__stall = { db, route }; // 调试/自检探针
   syncVoice(db.shop);
   const update = (fn) => mutate(fn);
   const nav = (h) => { location.hash = h; };

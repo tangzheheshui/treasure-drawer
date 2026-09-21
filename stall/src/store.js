@@ -37,7 +37,6 @@ export function seed() {
 
 let db = null;
 const subs = new Set();
-let saveTimer = null;
 
 export async function loadDB() {
   if (!db) {
@@ -65,18 +64,24 @@ export function getDB() {
   return db;
 }
 
-// 变更入口：先改再 mutate 触发重渲染 + 防抖落盘
+// 变更入口：先改再 mutate 触发重渲染 + 立即落盘（写事务同步发起，刷新/杀 App 不丢）
 export function mutate(fn) {
   if (!db) return;
   fn(db);
   subs.forEach((f) => f());
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => set(KEY, db), 200);
+  set(KEY, db).catch(() => { /* 磁盘异常不阻断营业 */ });
 }
 
 export function subscribe(fn) {
   subs.add(fn);
   return () => subs.delete(fn);
+}
+
+// 防抖落盘的兜底：页面隐藏/关闭瞬间强制刷盘，杀 App 也不丢最后一笔
+if (typeof window !== 'undefined') {
+  const flush = () => { if (db) set(KEY, db); };
+  addEventListener('pagehide', flush);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
 }
 
 // ── 派生 ──
@@ -151,7 +156,11 @@ export function removeItem(db, orderId, itemId) {
 
 export function clearTable(db, tableNo) {
   const o = activeOrder(db, tableNo);
-  if (o) { o.status = 'closed'; o.closedAt = Date.now(); }
+  if (o) {
+    o.batches.forEach((b) => { b.settled = true; }); // 清台 = 默认全部结清
+    o.status = 'closed';
+    o.closedAt = Date.now();
+  }
   db.calls = db.calls.filter((c) => c.tableNo !== tableNo);
 }
 

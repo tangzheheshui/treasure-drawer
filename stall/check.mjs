@@ -58,8 +58,8 @@ try {
   ok('管理模式顶栏出现（回到经营）', (await page.textContent('.adminbar .back')).includes('回到经营'));
   ok('经营态没有底部页签', (await page.locator('.tabbar').count()) === 0);
   await page.locator('.adminbar button', { hasText: '统计' }).click();
-  await page.waitForFunction(() => document.body.textContent.includes('今日'), { timeout: 5000 });
-  ok('今日统计出现归档订单', (await page.locator('.card').count()) >= 1);
+  await page.waitForFunction(() => document.body.textContent.includes('订单数1'), { timeout: 5000 });
+  ok('今日统计出现归档订单（已收齐）', (await page.textContent('.page')).includes('已收齐'));
   await page.locator('.adminbar button', { hasText: '库存' }).click();
   await page.waitForFunction(() => document.body.textContent.includes('库存价值'), { timeout: 5000 });
   ok('库存页出现（原料/价值/流水）', (await page.locator('.mrow, .row').count()) >= 1);

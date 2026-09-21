@@ -126,7 +126,7 @@ export default function Detail({ db, update, tableNo, nav }) {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>{tableNo}号桌消费 {total} 元，确认清台？</h3>
             <div className="sub">
-              {due > 0 ? <b style={{ color: 'var(--danger)' }}>还有 ¥{due} 没结！</b> : <b style={{ color: 'var(--ok)' }}>每笔都已结账，共 ¥{paid}。</b>}
+              {due > 0 ? <>未结的 <b>¥{due}</b> 会一并记为<b>已结账</b>。</> : <b style={{ color: 'var(--ok)' }}>每笔都已结账，共 ¥{paid}。</b>}
               {unserved > 0 && <div>还有 {unserved} 份未出餐！</div>}
               清台后订单归档，桌号释放给下一桌。
             </div>
