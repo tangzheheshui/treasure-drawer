@@ -1,62 +1,63 @@
 import React, { useState } from 'react';
-import { addMat, removeMat, stockIn, stockUse, stockCount, lowMats, stockValue, todayMoves } from '../store.js';
+import { addMat, removeMat, stockIn, stockUse, stockCount, lowMats, stockValue } from '../store.js';
 
 const r1 = (n) => Math.round(n * 100) / 100;
 const DAY = 86400000;
 
-// 库存：原料建档 → 入库 → 用量（可补记到最近某天）→ 盘点（整体，倒推差异）→ 价值/低库存/按天流水
+// 库存：页面本体只做展示（现状/明细/按天图表）；所有变更收进右上「＋ 记录」一个入口
 export default function Stock({ db, update }) {
-  const [dlg, setDlg] = useState(null); // {mode:'mat'|'in'|'use'|'count', mat?}  use 可不带 mat（带原料下拉）
-  const [f, setF] = useState({});
+  const [entry, setEntry] = useState(false);
+  const [tab, setTab] = useState('in'); // in | out | count | mat
+  const [f, setF] = useState({ day: 0 });
   const [confirmDel, setConfirmDel] = useState(null);
   const [openDay, setOpenDay] = useState(null);
   const low = lowMats(db);
   const value = stockValue(db);
-  const tm = todayMoves(db);
+  const matOf = () => db.mats.find((m) => m.id === f.matId);
 
-  const open = (mode, mat, presetDay) => { setF({ day: presetDay ?? 0 }); setDlg({ mode, mat }); };
-  const num = () => Number(f.qty);
-  const matOf = () => dlg.mat || db.mats.find((m) => m.id === f.matId);
-  const unitOf = () => (matOf() ? matOf().unit : '');
-
-  const submit = () => {
-    if (dlg.mode === 'mat') {
-      if (!(f.name || '').trim()) return;
-      update((d) => addMat(d, f));
-    } else if (dlg.mode === 'in') {
-      if (!(num() > 0)) return;
-      update((d) => stockIn(d, dlg.mat.id, num(), Number(f.price) || 0));
-    } else if (dlg.mode === 'use') {
-      const m = matOf();
-      if (!m || !(num() > 0)) return;
-      update((d) => stockUse(d, m.id, num(), f.day || 0));
-    } else if (dlg.mode === 'count') {
-      if (f.qty === '' || f.qty === undefined || num() < 0) return;
-      update((d) => stockCount(d, dlg.mat.id, num()));
+  const openEntry = (t) => { setTab(t); setF({ day: 0 }); setEntry(true); };
+  const save = () => {
+    if (tab === 'in') {
+      if (!f.matId || !(Number(f.qty) > 0)) return;
+      update((d) => stockIn(d, f.matId, Number(f.qty), Number(f.price) || 0));
+    } else if (tab === 'out') {
+      if (!f.matId || !(Number(f.qty) > 0)) return;
+      update((d) => stockUse(d, f.matId, Number(f.qty), f.day || 0));
+    } else if (tab === 'count') {
+      if (!f.matId || f.qty === '' || f.qty === undefined || Number(f.qty) < 0) return;
+      update((d) => stockCount(d, f.matId, Number(f.qty)));
     }
-    setDlg(null);
+    setEntry(false);
+  };
+  const saveMat = () => {
+    if (!(f.name || '').trim()) return;
+    update((d) => addMat(d, { name: f.name, unit: f.unit, cat: f.cat, safe: f.safe, stock: f.stock, price: f.price }));
+    setF({ day: 0 });
   };
 
-  // ── 按天流水：每天可记多次，按日聚合，点开看每项小计 ──
+  // ── 展示数据 ──
   const dayKeyOf = (ts) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
   const groups = {};
   db.moves.forEach((m) => { const k = dayKeyOf(m.at); (groups[k] = groups[k] || []).push(m); });
   const days = Object.entries(groups).sort((a, b) => b[0] - a[0]).slice(0, 7);
   const today0 = dayKeyOf(Date.now());
-  const dayLabel = (k) => (k === today0 ? '今天' : k === today0 - DAY ? '昨天' : `${new Date(Number(k)).getMonth() + 1}月${new Date(Number(k)).getDate()}日`);
-  const dayChips = (day, setDay) => (
-    <div className="catbar" style={{ paddingBottom: 0 }}>
-      {[0, -1, -2, -3, -4, -5, -6].map((o) => (
-        <button key={o} className={(day || 0) === o ? 'on' : ''} onClick={() => setDay(o)}>
-          {o === 0 ? '今天' : o === -1 ? '昨天' : o === -2 ? '前天' : `${-o}天前`}
-        </button>
-      ))}
-    </div>
+  const dayLabel = (k) => (k === today0 ? '今天' : k === today0 - DAY ? '昨天' : `${new Date(Number(k)).getMonth() + 1}/${new Date(Number(k)).getDate()}`);
+  const dayUse = days.map(([k, list]) => ({ k, label: dayLabel(Number(k)), use: r1(list.filter((m) => m.type === 'use').reduce((s, m) => s + m.qty, 0)) }));
+  const maxUse = Math.max(...dayUse.map((d) => d.use), 1);
+
+  const MatSelect = () => (
+    <>
+      <div className="label">原料</div>
+      <select className="f" value={f.matId || ''} onChange={(e) => setF({ ...f, matId: e.target.value })}>
+        <option value="" disabled>选原料</option>
+        {db.mats.map((m) => <option key={m.id} value={m.id}>{m.name}（剩 {r1(m.stock)}{m.unit}）</option>)}
+      </select>
+    </>
   );
 
   return (
     <>
-      <div className="nav">库存<button className="act" onClick={() => open('mat')}>＋ 原料</button></div>
+      <div className="nav">库存<button className="act" onClick={() => openEntry('in')}>＋ 记录</button></div>
       <div className="page">
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -71,41 +72,53 @@ export default function Stock({ db, update }) {
               </div>
             )}
           </div>
-          {low.length > 0 && <div className="sub" style={{ marginTop: 6, color: 'var(--danger)' }}>🔔 有原料低于安全线，记得补货入库</div>}
+          {low.length > 0 && <div className="sub" style={{ marginTop: 6, color: 'var(--danger)' }}>🔔 有原料低于安全线，点右上「＋ 记录」入库</div>}
         </div>
 
         <div className="card">
-          {db.mats.map((m) => {
-            const isLow = m.stock < m.safe;
-            return (
-              <div className="row" key={m.id}>
-                <div className="grow">
-                  <div className="name">
-                    {m.name} {isLow && <span className="pill unserved">低于安全线 {m.safe}{m.unit}</span>}
+          <b>库存明细</b>
+          <div style={{ marginTop: 4 }}>
+            {db.mats.map((m) => {
+              const isLow = m.stock < m.safe;
+              return (
+                <div className="row" key={m.id}>
+                  <div className="grow">
+                    <div className="name">{m.name} {isLow && <span className="pill unserved">补货</span>}</div>
+                    <div className="sub">{m.cat || '未分类'} · 安全线 {m.safe}{m.unit}</div>
                   </div>
-                  <div className="sub">{m.cat || '未分类'} · 剩 <b style={{ color: isLow ? 'var(--danger)' : 'var(--ink)' }}>{r1(m.stock)}{m.unit}</b> · 值 ¥{r1(m.stock * (m.lastPrice || 0))}</div>
+                  <div style={{ textAlign: 'right' }}>
+                    <b style={{ color: isLow ? 'var(--danger)' : 'var(--ink)' }}>{r1(m.stock)}{m.unit}</b>
+                    <div className="sub">值 ¥{r1(m.stock * (m.lastPrice || 0))}</div>
+                  </div>
                 </div>
-                <button className="mini ok" onClick={() => open('in', m)}>入库</button>
-                <button className="mini" onClick={() => open('use', m)}>用掉</button>
-                <button className="mini" onClick={() => open('count', m)}>盘点</button>
-                <button className="sqbtn del" onClick={() => setConfirmDel(m)}>✕</button>
-              </div>
-            );
-          })}
-          {!db.mats.length && <div className="sub" style={{ padding: 12 }}>还没有原料，点右上「＋ 原料」建档。</div>}
+              );
+            })}
+            {!db.mats.length && <div className="sub" style={{ padding: 12 }}>还没有原料，点右上「＋ 记录」新建。</div>}
+          </div>
         </div>
 
         <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-            <b>按天流水</b>
-            <span className="sub" style={{ marginLeft: 'auto' }}>最近 7 天，点一天展开</span>
+          <b>最近 7 天用量</b>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 90, marginTop: 10 }}>
+            {dayUse.map((d) => (
+              <div key={d.k} style={{ flex: 1, textAlign: 'center' }}>
+                <div className="sub" style={{ fontSize: 10 }}>{d.use || ''}</div>
+                <div style={{ height: Math.max(4, (d.use / maxUse) * 56), background: d.use ? 'var(--brand)' : '#e8eaee', borderRadius: 6, margin: '4px 2px' }} />
+                <div className="sub" style={{ fontSize: 11 }}>{d.label}</div>
+              </div>
+            ))}
+            {!dayUse.length && <div className="sub" style={{ padding: 8 }}>还没有出入库记录。</div>}
           </div>
+        </div>
+
+        <div className="card">
+          <b>按天流水</b>
+          <div className="sub" style={{ margin: '4px 0' }}>最近 7 天，点一天展开明细</div>
           {days.map(([k, list]) => {
             const inAmt = list.filter((m) => m.type === 'in').reduce((s, m) => s + m.qty * (m.price || 0), 0);
             const useQty = list.filter((m) => m.type === 'use').reduce((s, m) => s + m.qty, 0);
             const diffCnt = list.filter((m) => m.type === 'count' && m.diff).length;
             const open_ = openDay === null ? Number(k) === today0 : openDay === Number(k);
-            // 展开后按原料小计：这一天的每一项用了多少一目了然
             const byMat = {};
             list.forEach((m) => {
               const g = byMat[m.matName] || (byMat[m.matName] = { unit: m.unit, in: 0, use: 0, diff: 0, hasDiff: false, entries: [] });
@@ -122,38 +135,109 @@ export default function Stock({ db, update }) {
                   <span className="sub">入库 ¥{r1(inAmt)} · 用量 {r1(useQty)}{diffCnt ? ` · 差异 ${diffCnt} 项` : ''}</span>
                   <span className="sub" style={{ marginLeft: 'auto' }}>{open_ ? '▾' : '▸'}</span>
                 </div>
-                {open_ && (
-                  <>
-                    <button className="mini ok" style={{ margin: '6px 0' }}
-                            onClick={(e) => { e.stopPropagation(); open('use', null, Number(k)); }}>＋ 记这天的用量</button>
-                    {Object.entries(byMat).map(([name, g]) => (
-                      <div key={name} style={{ borderTop: '1px dashed var(--line)', paddingTop: 6, marginTop: 6 }}>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <b className="grow" style={{ fontSize: 14 }}>{name}</b>
-                          <span className="sub">
-                            {g.in ? `入库 ${r1(g.in)}${g.unit} ` : ''}
-                            {g.use ? `用掉 ${r1(g.use)}${g.unit}` : ''}
-                            {g.hasDiff ? ` 盘差 ${r1(g.diff)}${g.unit}` : ''}
-                          </span>
-                        </div>
-                        {g.entries.map((m) => (
-                          <div className="sub" key={m.id} style={{ padding: '2px 0 2px 10px' }}>
-                            {new Date(m.at).toTimeString().slice(0, 5)}{' '}
-                            {m.type === 'in' && `入库 +${r1(m.qty)}${m.unit}${m.price ? ` @¥${m.price}` : ''}`}
-                            {m.type === 'use' && `用量 −${r1(m.qty)}${m.unit}`}
-                            {m.type === 'count' && `盘点剩 ${r1(m.qty)}${m.unit}${m.diff ? `（差异 ${m.diff > 0 ? '+' : ''}${r1(m.diff)}）` : ''}`}
-                          </div>
-                        ))}
+                {open_ && Object.entries(byMat).map(([name, g]) => (
+                  <div key={name} style={{ borderTop: '1px dashed var(--line)', paddingTop: 6, marginTop: 6 }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <b className="grow" style={{ fontSize: 14 }}>{name}</b>
+                      <span className="sub">
+                        {g.in ? `入库 ${r1(g.in)}${g.unit} ` : ''}
+                        {g.use ? `用掉 ${r1(g.use)}${g.unit}` : ''}
+                        {g.hasDiff ? ` 盘差 ${r1(g.diff)}${g.unit}` : ''}
+                      </span>
+                    </div>
+                    {g.entries.map((m) => (
+                      <div className="sub" key={m.id} style={{ padding: '2px 0 2px 10px' }}>
+                        {new Date(m.at).toTimeString().slice(0, 5)}{' '}
+                        {m.type === 'in' && `入库 +${r1(m.qty)}${m.unit}${m.price ? ` @¥${m.price}` : ''}`}
+                        {m.type === 'use' && `用量 −${r1(m.qty)}${m.unit}`}
+                        {m.type === 'count' && `盘点剩 ${r1(m.qty)}${m.unit}${m.diff ? `（差异 ${m.diff > 0 ? '+' : ''}${r1(m.diff)}）` : ''}`}
                       </div>
                     ))}
-                  </>
-                )}
+                  </div>
+                ))}
               </div>
             );
           })}
           {!days.length && <div className="sub" style={{ padding: 8 }}>还没有出入库记录。</div>}
         </div>
       </div>
+
+      {/* ── 唯一变更入口：记录弹层 ── */}
+      {entry && (
+        <div className="mask" onClick={() => setEntry(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+              {[['in', '入库'], ['out', '出库'], ['count', '盘点'], ['mat', '原料']].map(([k, label]) => (
+                <button key={k} className={`mini ${tab === k ? 'ok' : ''}`} style={{ flex: 1, padding: '9px 0' }} onClick={() => setTab(k)}>{label}</button>
+              ))}
+            </div>
+
+            {tab === 'in' && (
+              <>
+                <MatSelect />
+                <div className="label">入库数量</div>
+                <input className="f" type="number" inputMode="decimal" value={f.qty ?? ''} onChange={(e) => setF({ ...f, qty: e.target.value })} />
+                <div className="label">单价（元，选填）</div>
+                <input className="f" type="number" inputMode="decimal" value={f.price ?? ''} onChange={(e) => setF({ ...f, price: e.target.value })} />
+              </>
+            )}
+            {tab === 'out' && (
+              <>
+                <MatSelect />
+                <div className="label">用了多少</div>
+                <input className="f" type="number" inputMode="decimal" value={f.qty ?? ''} onChange={(e) => setF({ ...f, qty: e.target.value })} />
+                <div className="label">记在哪一天（一天可记多次）</div>
+                <div className="catbar" style={{ paddingBottom: 0 }}>
+                  {[0, -1, -2, -3, -4, -5, -6].map((o) => (
+                    <button key={o} className={(f.day || 0) === o ? 'on' : ''} onClick={() => setF({ ...f, day: o })}>
+                      {o === 0 ? '今天' : o === -1 ? '昨天' : o === -2 ? '前天' : `${-o}天前`}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            {tab === 'count' && (
+              <>
+                <MatSelect />
+                <div className="label">实际还剩多少</div>
+                <input className="f" type="number" inputMode="decimal" value={f.qty ?? ''} onChange={(e) => setF({ ...f, qty: e.target.value })} />
+                <div className="sub" style={{ marginTop: 8 }}>填实际剩余即可，用量和差异系统自动倒推记录。</div>
+              </>
+            )}
+            {tab === 'mat' && (
+              <>
+                <div className="label">新原料</div>
+                <input className="f" placeholder="名称，如：羊肉片" value={f.name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} />
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <input className="f" placeholder="单位（斤/瓶…）" value={f.unit || ''} onChange={(e) => setF({ ...f, unit: e.target.value })} />
+                  <input className="f" placeholder="分类" value={f.cat || ''} onChange={(e) => setF({ ...f, cat: e.target.value })} />
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <input className="f" type="number" placeholder="安全线" value={f.safe ?? ''} onChange={(e) => setF({ ...f, safe: e.target.value })} />
+                  <input className="f" type="number" placeholder="初始库存" value={f.stock ?? ''} onChange={(e) => setF({ ...f, stock: e.target.value })} />
+                  <input className="f" type="number" placeholder="进价" value={f.price ?? ''} onChange={(e) => setF({ ...f, price: e.target.value })} />
+                </div>
+                <button className="btn ok block" style={{ marginTop: 10 }} disabled={!(f.name || '').trim()} onClick={saveMat}>＋ 建档</button>
+                <div className="label" style={{ marginTop: 14 }}>已有原料（点删除移除）</div>
+                {db.mats.map((m) => (
+                  <div className="row" key={m.id}>
+                    <div className="grow name" style={{ fontSize: 14 }}>{m.name}</div>
+                    <span className="sub">剩 {r1(m.stock)}{m.unit}</span>
+                    <button className="sqbtn del" onClick={() => setConfirmDel(m)}>✕</button>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {tab !== 'mat' && (
+              <div className="mfoot">
+                <button className="btn" onClick={() => setEntry(false)}>取消</button>
+                <button className="btn primary" onClick={save}>保存</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {confirmDel && (
         <div className="mask" onClick={() => setConfirmDel(null)}>
@@ -163,67 +247,6 @@ export default function Stock({ db, update }) {
             <div className="mfoot">
               <button className="btn" onClick={() => setConfirmDel(null)}>取消</button>
               <button className="btn danger" onClick={() => { update((d) => removeMat(d, confirmDel.id)); setConfirmDel(null); }}>删除</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {dlg && (
-        <div className="mask" onClick={() => setDlg(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            {dlg.mode === 'mat' ? (
-              <>
-                <h3>新原料</h3>
-                <div className="label">名称</div>
-                <input className="f" value={f.name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="如：羊肉片" />
-                <div className="label">单位（斤 / 瓶 / 把…）</div>
-                <input className="f" value={f.unit || ''} onChange={(e) => setF({ ...f, unit: e.target.value })} />
-                <div className="label">分类</div>
-                <input className="f" value={f.cat || ''} onChange={(e) => setF({ ...f, cat: e.target.value })} placeholder="肉类 / 酒水 / 耗材" />
-                <div className="label">安全线（低于就提醒）</div>
-                <input className="f" type="number" inputMode="decimal" value={f.safe ?? ''} onChange={(e) => setF({ ...f, safe: e.target.value })} />
-                <div className="label">初始库存（可留空）</div>
-                <input className="f" type="number" inputMode="decimal" value={f.stock ?? ''} onChange={(e) => setF({ ...f, stock: e.target.value })} />
-                <div className="label">最近进价（元/单位，可留空）</div>
-                <input className="f" type="number" inputMode="decimal" value={f.price ?? ''} onChange={(e) => setF({ ...f, price: e.target.value })} />
-              </>
-            ) : dlg.mode === 'use' ? (
-              <>
-                <h3>{dlg.mat ? `${dlg.mat.name} · 记用量` : '记用量'}</h3>
-                {dlg.mat
-                  ? <div className="sub">当前剩 {r1(dlg.mat.stock)}{dlg.mat.unit}</div>
-                  : (
-                    <>
-                      <div className="label">原料</div>
-                      <select className="f" value={f.matId || ''} onChange={(e) => setF({ ...f, matId: e.target.value })}>
-                        <option value="" disabled>选原料</option>
-                        {db.mats.map((m) => <option key={m.id} value={m.id}>{m.name}（剩 {r1(m.stock)}{m.unit}）</option>)}
-                      </select>
-                    </>
-                  )}
-                <div className="label">用了多少（{unitOf()}）</div>
-                <input className="f" type="number" inputMode="decimal" autoFocus value={f.qty ?? ''} onChange={(e) => setF({ ...f, qty: e.target.value })} />
-                <div className="label">记在哪一天（一天可以记多次）</div>
-                {dayChips(f.day, (day) => setF({ ...f, day }))}
-              </>
-            ) : (
-              <>
-                <h3>{dlg.mat.name} · {dlg.mode === 'in' ? '入库' : '盘点'}</h3>
-                <div className="sub">当前剩 {r1(dlg.mat.stock)}{dlg.mat.unit}</div>
-                <div className="label">{dlg.mode === 'in' ? `入库数量（${dlg.mat.unit}）` : `实际还剩多少（${dlg.mat.unit}）`}</div>
-                <input className="f" type="number" inputMode="decimal" autoFocus value={f.qty ?? ''} onChange={(e) => setF({ ...f, qty: e.target.value })} />
-                {dlg.mode === 'in' && (
-                  <>
-                    <div className="label">单价（元/{dlg.mat.unit}）</div>
-                    <input className="f" type="number" inputMode="decimal" value={f.price ?? ''} onChange={(e) => setF({ ...f, price: e.target.value })} />
-                  </>
-                )}
-                {dlg.mode === 'count' && <div className="sub" style={{ marginTop: 8 }}>填实际剩余即可，用量和差异系统自动倒推记录。</div>}
-              </>
-            )}
-            <div className="mfoot">
-              <button className="btn" onClick={() => setDlg(null)}>取消</button>
-              <button className="btn primary" onClick={submit}>保存</button>
             </div>
           </div>
         </div>
