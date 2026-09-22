@@ -18,8 +18,8 @@ export default function Tables({ db, update, nav, onAdmin }) {
   // ── 语音点菜：按住说 → 松手识别 → 预览改单 → 选桌 ──
   // 手势铁律：**按住期间绝不卸载按钮**。一按就卸载 = 把手指的触摸目标从 DOM 摘掉，
   // 触摸事件从此派发到「已脱离文档的节点」，冒不到 document，任何松手监听都收不到
-  // ——真机松手必卡死的根。配合 Pointer 事件 + setPointerCapture：按下瞬间把指针
-  // 捕获到按钮上，之后蒙层盖上、手指挪动，pointerup 都保证派回按钮本体。
+  // ——真机松手必卡死的根。松手用 pointer + touch 两套事件 redundantly 收
+  // （按钮本体 + document 兜底都要）：有的手机 webview 指针实现有毛病会吞 pointerup。
   const [phase, setPhase] = useState(null);        // null | 'listen'（正在听）| 'recognize'（识别中）
   const [vol, setVol] = useState(0);
   const [live, setLive] = useState('');            // 分段识别的实时粗文字
@@ -32,6 +32,7 @@ export default function Tables({ db, update, nav, onAdmin }) {
       alert('请先到「设置 → 联机」登录，登录后即可语音点菜');
       return;
     }
+    if (recRef.current) return; // pointerdown 和 touchstart 会接连各来一次，防重入
     setVol(0);
     setLive('');
     setPhase('listen');
@@ -58,14 +59,15 @@ export default function Tables({ db, update, nav, onAdmin }) {
     recRef.current = null;
   };
 
-  // 保险带：万一 pointerup 没落到按钮上（怪异 webview），document 上兜一手
+  // 保险带：松手事件三套全挂（pointer / touch / mouse），哪套到了都能停——
+  // 部分手机 webview 的指针捕获实现有毛病，pointerup 会被整个吞掉，touchend 兜住
   useEffect(() => {
     if (phase !== 'listen') return;
-    document.addEventListener('pointerup', stopVoice);
-    document.addEventListener('pointercancel', stopVoice);
+    ['pointerup', 'pointercancel', 'touchend', 'touchcancel', 'mouseup'].forEach((ev) =>
+      document.addEventListener(ev, stopVoice));
     return () => {
-      document.removeEventListener('pointerup', stopVoice);
-      document.removeEventListener('pointercancel', stopVoice);
+      ['pointerup', 'pointercancel', 'touchend', 'touchcancel', 'mouseup'].forEach((ev) =>
+        document.removeEventListener(ev, stopVoice));
     };
   }, [phase]);
 
@@ -189,13 +191,12 @@ export default function Tables({ db, update, nav, onAdmin }) {
       {/* ── 底部居中「按住说话」大按钮（听/识别期间也不卸载，蒙层盖在上面）── */}
       {asrAvailable(db.shop) && !preview && !pickTable && (
         <button className="voice-btn"
-                onPointerDown={(e) => {
-                  e.preventDefault(); // 压掉浏览器补发的合成鼠标事件/选中（touchstart 是 passive，preventDefault 无效）
-                  try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* 无捕获的引擎：按钮常驻不卸载也能收到 up */ }
-                  startVoice();
-                }}
+                onPointerDown={(e) => { e.preventDefault(); startVoice(); }} // preventDefault 压掉合成鼠标事件/选中（touchstart 是 passive，压不住）
                 onPointerUp={stopVoice}
                 onPointerCancel={stopVoice}
+                onTouchStart={startVoice}
+                onTouchEnd={stopVoice}
+                onTouchCancel={stopVoice}
                 onLostPointerCapture={stopVoice}
                 onContextMenu={(e) => e.preventDefault()}>
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

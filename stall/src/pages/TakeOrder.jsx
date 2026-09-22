@@ -52,6 +52,7 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
 
   // ── 语音点菜：引擎走 asr.js 适配器（填了百度 key 走百度，否则浏览器内置 ASR）──
   const startVoice = () => {
+    if (recRef.current) return; // pointerdown 和 touchstart 会接连各来一次，防重入
     setLive('');
     setVol(0);
     setSwap(-1);
@@ -72,7 +73,7 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
       onCancel: () => setListening(false), // 录音未开始就松手：静默退出，别卡在「正在听」
     }, db.shop);
   };
-  const stopVoice = () => { recRef.current?.(); };
+  const stopVoice = () => { recRef.current?.(); recRef.current = null; };
 
   // 预览行编辑：数量 / 规格 / 换菜 / 删行
   const editRow = (i, patch) => setPreview((p) => ({ ...p, items: p.items.map((r, k) => (k === i ? { ...r, ...patch } : r)) }));
@@ -168,7 +169,10 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
           <button className="micbtn" title="按住说话，松开识别"
                   onPointerDown={startVoice}
                   onPointerUp={stopVoice}
-                  onPointerCancel={stopVoice}>🎤</button>
+                  onPointerCancel={stopVoice}
+                  onTouchStart={startVoice}
+                  onTouchEnd={stopVoice}
+                  onTouchCancel={stopVoice}>🎤</button>
         )}
         <span className="sum">¥{total}</span>
         <span className="sub">{count} 件</span>

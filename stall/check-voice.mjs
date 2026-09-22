@@ -138,6 +138,13 @@ try {
   } else {
     ok('「再说一遍」= 关预览回工作台（再按按钮重说）', true);
   }
+  // 模拟吞 pointerup 的怪 webview（真机遇到过）：只剩裸 touchend 也必须能停
+  await press(page, tDown);
+  await page.evaluate(() => document.querySelector('.voice-btn').dispatchEvent(new Event('touchend', { bubbles: true })));
+  ok('只剩裸 touchend 也能停（怪 webview 兜底）', await until(page, () => {
+    const el = document.querySelector('.ltext');
+    return !el || el.textContent.includes('识别中');
+  }, 2500));
   await ctx.close();
 
   // ── 鼠标路径（桌面 Chrome）──
