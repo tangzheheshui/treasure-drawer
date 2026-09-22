@@ -152,6 +152,19 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; 
 .mrow .dots { flex: 1; border-bottom: 1px dotted #c8ccd2; margin: 0 6px; transform: translateY(4px); }
 .mrow .price { font-weight: 700; }
 
+/* 语音点菜 */
+.micbtn { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line); background: #fff;
+          font-size: 22px; cursor: pointer; flex: none; }
+.micbig { font-size: 56px; text-align: center; animation: micpulse 1.2s ease-in-out infinite; }
+@keyframes micpulse { 0%, 100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.18); opacity: 1; } }
+.listen { text-align: center; color: #fff; width: 84%; max-width: 340px; }
+.ltext { font-size: 21px; line-height: 1.5; min-height: 64px; margin: 16px 0 10px; word-break: break-all; }
+.vrow { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); padding: 9px 0; }
+.vrow .grow b { font-size: 16px; }
+.pill.warn { background: #faeadf; color: var(--warn); }
+.vswap { max-height: 180px; overflow-y: auto; margin: 6px 0; border: 1px solid var(--line); border-radius: 10px; }
+.vswap .row { padding: 10px 12px; cursor: pointer; }
+
 /* 二维码 */
 .qr-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .qr-card { background: #fff; border-radius: 14px; padding: 12px; text-align: center; }

@@ -1,10 +1,47 @@
 // 摊主端无头自检：开台点单 → 出餐叫号 → 清台 → 统计归档，全链路一遍。
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { existsSync } from 'node:fs';
 import { chromium } from 'playwright-core';
+import { parseOrderTranscript } from './src/parseOrder.js';
+
+// ── 语音解析：纯函数直接在 Node 里断言（真机语音识别没法无头测，先锁死解析逻辑）──
+const out = [];
+const ok = (name, cond) => out.push([name, !!cond]);
+const MENU = [
+  { id: 'yrc', name: '羊肉串', price: 6, soldOut: false },
+  { id: 'nrc', name: '牛肉串', price: 6, soldOut: false },
+  { id: 'kmj', name: '烤面筋', price: 3, soldOut: false },
+  { id: 'pj', name: '啤酒', price: 10, soldOut: false },
+  { id: 'kl', name: '可乐', price: 3, soldOut: false },
+  { id: 'kys', name: '矿泉水', price: 2, soldOut: false },
+  { id: 'cf', name: '炒粉', price: 10, soldOut: false },
+  { id: 'phg', name: '拍黄瓜', price: 8, soldOut: true }, // 售罄不参与
+].map((d) => ({ ...d }));
+const P = (t) => parseOrderTranscript(t, MENU);
+const pick = (r, name) => r.items.find((i) => i.name === name);
+{
+  let r = P('羊肉串来二十串可乐两瓶');
+  ok('解析：菜名后数量（羊肉串20/可乐2）', pick(r, '羊肉串')?.qty === 20 && pick(r, '可乐')?.qty === 2 && r.items.length === 2);
+  r = P('先来十串羊肉串再来五串面筋');
+  ok('解析：数量在前后都行（羊肉串10）', pick(r, '羊肉串')?.qty === 10);
+  ok('解析：错字模糊认出（面筋→烤面筋，标「认成了？」）', pick(r, '烤面筋')?.qty === 5 && pick(r, '烤面筋')?.fuzzy === true);
+  r = P('羊肉串十串牛肉串五串');
+  ok('解析：两菜各配各的数（10/5）', pick(r, '羊肉串')?.qty === 10 && pick(r, '牛肉串')?.qty === 5);
+  r = P('给我羊肉串可乐');
+  ok('解析：没说数量默认 1 份', pick(r, '羊肉串')?.qty === 1 && pick(r, '可乐')?.qty === 1);
+  r = P('羊肉串一百串');
+  ok('解析：中文数字百位（一百=100）', pick(r, '羊肉串')?.qty === 100);
+  r = P('羊肉串二十串拍黄瓜');
+  ok('解析：售罄的菜不认', pick(r, '羊肉串')?.qty === 20 && !pick(r, '拍黄瓜') && r.leftover.includes('黄瓜'));
+  r = P('随便说点别的');
+  ok('解析：全没对上时出空单子', r.items.length === 0 && r.leftover.length > 0);
+  r = P('二十三串羊肉串两瓶啤酒');
+  ok('解析：二十三=23、啤酒两瓶', pick(r, '羊肉串')?.qty === 23 && pick(r, '啤酒')?.qty === 2);
+}
 
 const url = 'http://localhost:5198/';
-const srv = spawn('npx', ['vite', 'preview', '--port', '5198', '--strictPort'], { cwd: '.', stdio: 'ignore' });
+const srv = spawn('npx', ['vite', 'preview', '--port', '5198', '--strictPort'], { cwd: '.', stdio: 'ignore', shell: true }); // Windows 下 npx 是 .cmd，得走 shell
 let up = false;
 for (let i = 0; i < 40; i++) {
   try { const r = await fetch(url); if (r.ok) { up = true; break; } } catch { /* 未起 */ }
@@ -12,13 +49,26 @@ for (let i = 0; i < 40; i++) {
 }
 if (!up) { console.log('✗ 预览服务起不来'); srv.kill(); process.exit(1); }
 
-const browser = await chromium.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true });
+// 浏览器按平台找（Chrome 优先，Edge 同为 Chromium 可顶上），找不到就只保留 Node 侧的解析断言
+const CHROME = [
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+].find((p) => existsSync(p));
+if (!CHROME) {
+  srv.kill();
+  console.log('⚠ 没找到 Chrome，跳过页面自检（语音解析断言已跑）');
+  let fail = 0;
+  for (const [name, pass] of out) { console.log(`${pass ? '✓' : '✗'} ${name}`); if (!pass) fail++; }
+  process.exit(fail ? 1 : 0);
+}
+const browser = await chromium.launch({ executablePath: CHROME, headless: true });
 const page = await browser.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 
-const out = [];
-const ok = (name, cond) => out.push([name, !!cond]);
 try {
   await page.goto(url);
   await page.waitForSelector('.tcard', { timeout: 10000 });
