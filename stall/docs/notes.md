@@ -95,12 +95,15 @@ seen: [订单记录 id]               // 实时去重
   - 准确度不承诺 100%（夜市噪音更不能）：设计就不依赖准——预览改单是关卡，语音是加速器不是依赖项；追求「十句里八句不用改」，上限取决于引擎。
 
 ## 百度语音识别接入（2026-09-22）
-人拍板先用百度（对比过火山：火山走 WebSocket 且鉴权塞 Header，浏览器原生 WebSocket 不支持自定义 Header，必须架后端代理，负优化；百度走 HTTP 直连 + 免费 200 万次，纯前端够）。
-- `asr.js` 现在是**双引擎适配器**：填了 `shop.baiduKey + baiduSecret` 走百度，不填回退浏览器内置 ASR。点单页 `asrAvailable(db.shop)` / `asrListen(handlers, db.shop)` 自动选；`asrLive()` 报告是否支持实时上屏（百度为「一句话识别」无中途结果，收听层只显示「正在听…」）。
-- 百度链路（纯前端，无后端）：`getUserMedia` 录音 + `MediaRecorder`（webm）→ `AnalyserNode` 静音检测（rms>0.025 起算有声，之后连续静音 1.5s 自动结束，点屏幕可提前结束）→ `decodeAudioData` 解码 → `OfflineAudioContext` 重采样 16k 单声道 → 封 WAV → base64 → 换/缓存 access_token（API Key+Secret 换，localStorage 缓存约 30 天）→ `POST vop.baidu.com/server_api`（短语音识别标准版）→ 回文字 → 进预览改单。
-- 设置页新增「语音识别」卡：两个输入框即时存本机；Key **不会**随 `publishMenu` 上云（发布只带 name/tableCount/menu/served）。填齐后显示「✅ 已启用百度识别」。
+人拍板先用百度（对比过火山：火山走 WebSocket 且鉴权塞 Header，浏览器原生 WebSocket 不支持自定义 Header，必须架后端代理，负优化；百度走 HTTP 直连 + 免费 200 万次）。
+- **key 配在服务器，摊主零配置**（人明确「不可能让摊主配置」）：百度 Key/Secret 放 PocketBase 服务器环境变量 `BAIDU_KEY`/`BAIDU_SECRET`，`pb_hooks/baidu-asr.pb.js` 注册 `POST /api/baidu-asr` 代理路由（0.23 `routerAdd` + `e.bindBody(DynamicModel)` + `$apis.requireRecordAuth()` 校验登录用户 + `$http.send` 换 token/调百度）。摊主端只发音频、收文字，全程不碰 key。
+- `asr.js` **双路径自动选**：已联机（`shop.pbBase`+`pbId`）→ 走服务器代理 `/api/baidu-asr`（带 PB 登录 token）；未联机 → 回退浏览器内置 ASR。点单页 `asrAvailable(db.shop)` / `asrListen(handlers, db.shop)` 自动选；`asrLive()` 报告是否实时上屏（百度一句话识别无中途结果，收听层只显示「正在听…」）。
+- 前端录音/转码链路：`getUserMedia` + `MediaRecorder`（webm）→ `AnalyserNode` 静音检测（rms>0.025 起算有声，之后连续静音 1.5s 自动结束，点屏幕可提前结束）→ `decodeAudioData` → `OfflineAudioContext` 重采样 16k 单声道 → 封 WAV → base64 → POST 代理。服务器换/缓存 token（模块级变量，约 30 天）→ 调 `vop.baidu.com/server_api`。
+- 设置页「语音识别」卡改为纯说明：识别引擎由服务器统一提供，显示联机状态（联机=服务器识别可用，未联机=仅 iPhone 浏览器识别）。**不再有摊主填 key 的输入框**。
+- 延迟口径（人问「能保证实时吗 会卡延时吗」）：百度一句话识别非流式，说完到出单子预览约 2–4s（静音判定 1.5s + 上传 + 识别）。点菜场景够用，风险在准不在快；要「边说边出字」需升级百度流式 WebSocket（代理转发 WS，将来可做，录音/转码/改单全复用）。
+- 服务器部署与自测：`npm run test-baidu`（`BAIDU_KEY=… BAIDU_SECRET=…`）验证 key 对不对；部署 `pb_hooks/baidu-asr.pb.js` + 设环境变量重启 PB。
 - 已知边界/待真机：静音阈值 0.025 与 1.5s 窗口是拍的，夜市噪音下要实测调（配「点屏幕结束」兜底）；百度一句话识别上限 60s/句；需要 https 或 localhost 才有麦克风（与浏览器 ASR 同约束）。
-- 真机验收清单：iPhone（浏览器 ASR 路）、安卓（百度路）、微信打开（百度路），各说一句「羊肉串二十串中辣可乐两瓶」看识别与改单是否顺。
+- 真机验收清单：iPhone（浏览器 ASR 路）、安卓（服务器代理路）、微信打开（服务器代理路），各说一句「羊肉串二十串中辣可乐两瓶」看识别与改单是否顺。
 - 自检：`check.mjs` 前 9 项是解析断言（纯 Node 跑，真机语音没法无头测，先锁死解析逻辑）；真机要验证的是 ASR 可用性与嘈杂环境识别率。浏览器自检的浏览器路径按平台找（Win Chrome → Edge 顶上 → Mac Chrome）。
 - 已知边界：两字菜名错字认不出（相似度要求满分，宁可不认不错）；同音不同菜（羊/牛）靠「认成了？」标出让摊主定；顾客 H5 语音是以后的事，这轮只做摊主代点。
 - 注意：将来做**菜品规格**（辣度/份量，上一轮人选过还没做）时，语音解析要能带上规格词（「羊肉串十串中辣」），`parseOrder.js` 的菜名匹配后要留规格解析的位置。

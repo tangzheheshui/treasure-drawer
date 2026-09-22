@@ -1,40 +1,35 @@
 // 语音识别引擎适配器：点单页只跟这里的接口说话，换引擎不动 UI、不动解析。
 //
-// 现役两套实现，按配置自动选：
-// 1) 浏览器内置 ASR（webkitSpeechRecognition zh-CN，零成本、边说边上屏；iPhone Safari 可用，
-//    安卓 Chrome 走谷歌服务国内常不通，微信/套壳 App webview 干脆没有）
-// 2) 百度短语音识别（HTTP，浏览器直连、不依赖谷歌；摊主在「设置 → 语音识别」填
-//    API Key + Secret Key 即走这套，安卓 / 微信 / 将来套壳 App 通用）
-// 不填百度 key 时回退浏览器 ASR。
+// 两条路径，自动选：
+// 1) 服务器代理（推荐，百度 key 配在 PocketBase 服务器，摊主零配置）：
+//    摊主已联机（shop.pbBase + pbId）→ 录音/转码在前端，音频 POST 到
+//    `${pbBase}/api/baidu-asr`，由服务器换 token 调百度返回文字。安卓/微信/App 通用。
+// 2) 浏览器内置 ASR（兜底，未联机时）：webkitSpeechRecognition zh-CN，
+//    iPhone Safari 可用、边说边上屏；安卓 Chrome 国内常不通。
 //
 // 接口：
-//   asrAvailable(cfg) → bool              有没有可用引擎（没有就藏麦克风按钮）
-//   asrLive(cfg) → bool                   是否支持边说边上屏（浏览器 true，百度 false）
+//   asrAvailable(cfg) → bool
+//   asrLive(cfg) → bool           是否支持边说边上屏（仅浏览器 ASR true）
 //   asrListen(handlers, cfg) → stopFn
-//     handlers.onText(全文)    边说边上屏（百度为「一句话识别」没有中途结果，此回调不触发）
-//     handlers.onEnd(最终文字) 结束（空串=没听清）
-//     handlers.onError(code, msg)  code: not-allowed | unsupported | error
-//   cfg = { baiduKey, baiduSecret }（来自 db.shop）
+//     handlers.onText(全文) / onEnd(最终文字) / onError(code, msg)
+//   cfg = db.shop
+
+import { authToken } from './sync.js';
 
 let active = null; // 进行中的会话；新会话开始时自动顶掉旧的
 
-const hasBaidu = (cfg) => !!(cfg && cfg.baiduKey && cfg.baiduSecret);
+const online = (cfg) => !!(cfg && cfg.pbBase && cfg.pbId);
 const webkit = () => (typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition));
 
-export function asrAvailable(cfg) {
-  return hasBaidu(cfg) || !!webkit();
-}
-
-export function asrLive(cfg) {
-  return !hasBaidu(cfg); // 百度一句话识别无实时结果
-}
+export function asrAvailable(cfg) { return online(cfg) || !!webkit(); }
+export function asrLive(cfg) { return !online(cfg); }
 
 export function asrListen(handlers, cfg) {
   if (active) { try { active(); } catch { /* 已停 */ } active = null; }
-  return hasBaidu(cfg) ? baiduListen(handlers, cfg) : webkitListen(handlers);
+  return online(cfg) ? serverListen(handlers, cfg) : webkitListen(handlers);
 }
 
-// ── 浏览器内置 ASR ──
+// ── 浏览器内置 ASR（未联机兜底）──
 function webkitListen({ onText, onEnd, onError }) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { onError && onError('unsupported', '此浏览器不支持语音识别'); return () => {}; }
@@ -59,8 +54,8 @@ function webkitListen({ onText, onEnd, onError }) {
   return stop;
 }
 
-// ── 百度短语音识别：录音 → 静音检测结束 → 转 16k WAV → base64 → server_api ──
-async function baiduListen({ onEnd, onError }, cfg) {
+// ── 服务器代理（百度一句话识别，key 在服务器）：录音 → 静音检测结束 → 转 16k WAV → POST 代理 ──
+async function serverListen({ onEnd, onError }, cfg) {
   let stream, audioCtx, rec, raf, stopped = false, speaking = false, silentSince = 0;
 
   const fail = (code, msg) => { onError && onError(code, msg); };
@@ -87,10 +82,10 @@ async function baiduListen({ onEnd, onError }, cfg) {
     if (!speaking) { onEnd && onEnd(''); return; } // 全程没听到声音，不调接口
     try {
       const wav = await blobToWav16k(new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
-      const text = await baiduRecognize(wav, cfg);
+      const text = await proxyRecognize(wav, cfg);
       onEnd && onEnd(text);
     } catch (e) {
-      fail('error', `百度识别失败：${String(e.message || e).slice(0, 60)}`);
+      fail('error', `识别失败：${String(e.message || e).slice(0, 60)}`);
     }
   };
 
@@ -116,6 +111,19 @@ async function baiduListen({ onEnd, onError }, cfg) {
   return stop;
 }
 
+// 调 PocketBase 服务器上的 /api/baidu-asr 代理（带登录 token 校验身份）
+async function proxyRecognize(wav, cfg) {
+  const base = (cfg.pbBase || '').replace(/\/$/, '');
+  const res = await fetch(`${base}/api/baidu-asr`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: authToken() },
+    body: JSON.stringify({ format: 'wav', rate: 16000, len: wav.byteLength, speech: toBase64(wav) }),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (res.ok && j.text) return j.text;
+  throw new Error(j.error || `识别失败（${res.status}）`);
+}
+
 // 录音 blob（webm/opus 或 mp4）→ 16k 16bit 单声道 WAV（ArrayBuffer）
 async function blobToWav16k(blob) {
   const ab = await blob.arrayBuffer();
@@ -131,8 +139,7 @@ async function blobToWav16k(blob) {
     s.connect(offline.destination);
     s.start();
     const rendered = await offline.startRendering();
-    const samples = rendered.getChannelData(0);
-    return encodeWav(samples, TARGET);
+    return encodeWav(rendered.getChannelData(0), TARGET);
   } finally {
     try { ac.close(); } catch { /* 忽略 */ }
   }
@@ -152,39 +159,6 @@ function encodeWav(samples, rate) {
     v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
   }
   return buf;
-}
-
-// 换/缓存 access_token（有效期约 30 天），再调短语音识别标准版
-async function getToken(key, secret) {
-  const cacheKey = `stall-baidu-token:${key}`;
-  try {
-    const c = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-    if (c && c.exp > Date.now()) return c.token;
-  } catch { /* 隐私模式无 localStorage，忽略缓存 */ }
-  const url = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials` +
-    `&client_id=${encodeURIComponent(key)}&client_secret=${encodeURIComponent(secret)}`;
-  const res = await fetch(url, { method: 'POST' });
-  const j = await res.json();
-  if (!j.access_token) throw new Error(j.error_description || j.error || 'token 获取失败，检查 Key/Secret');
-  try {
-    localStorage.setItem(cacheKey, JSON.stringify({ token: j.access_token, exp: Date.now() + (j.expires_in || 2592000) * 1000 }));
-  } catch { /* 忽略缓存失败 */ }
-  return j.access_token;
-}
-
-async function baiduRecognize(wav, cfg) {
-  const token = await getToken(cfg.baiduKey, cfg.baiduSecret);
-  const res = await fetch('https://vop.baidu.com/server_api', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      format: 'wav', rate: 16000, channel: 1, cuid: 'stall-order',
-      token, len: wav.byteLength, speech: toBase64(wav),
-    }),
-  });
-  const j = await res.json();
-  if (j.err_no === 0 && j.result) return (j.result || []).join('');
-  throw new Error(j.err_msg || `识别失败（err_no ${j.err_no}）`);
 }
 
 function toBase64(buf) {

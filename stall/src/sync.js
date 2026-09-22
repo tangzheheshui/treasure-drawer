@@ -12,6 +12,9 @@ const getClient = (base) => {
 
 export const isOnline = (db) => !!(db.shop.pbBase && db.shop.pbId);
 
+// 供语音识别代理用：摊主已登录的 PocketBase token（服务器端校验身份，防白嫖）
+export const authToken = () => { try { return pb?.authStore?.token || ''; } catch { return ''; } };
+
 export async function login(base, email, pass) {
   const c = getClient(base);
   await c.collection('users').authWithPassword(email, pass);

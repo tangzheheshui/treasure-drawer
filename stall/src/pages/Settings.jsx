@@ -86,18 +86,10 @@ export default function Settings({ db, update, nav }) {
         <div className="card">
           <b>语音识别（点菜）</b>
           <div className="sub" style={{ margin: '4px 0 8px' }}>
-            不填用浏览器内置识别（iPhone 可用，安卓/微信常不通）；填百度 Key/Secret 则走百度识别，安卓、微信、将来 App 都能用。百度个人开通即送约 200 万次免费调用。
+            识别引擎由服务器统一提供，摊主无需任何配置。联机后点单页 🎤 自动走服务器识别（安卓/微信/App 都能用）；未联机时回退浏览器内置识别（iPhone 可用）。
           </div>
-          <div className="label">API Key</div>
-          <input className="f" value={db.shop.baiduKey || ''} placeholder="百度智能云 · 应用 API Key"
-                 onChange={(e) => update((d) => { d.shop.baiduKey = e.target.value.trim(); })} />
-          <div className="label">Secret Key</div>
-          <input className="f" value={db.shop.baiduSecret || ''} placeholder="百度智能云 · 应用 Secret Key"
-                 onChange={(e) => update((d) => { d.shop.baiduSecret = e.target.value.trim(); })} />
-          <div className="sub" style={{ marginTop: 8 }}>
-            {(db.shop.baiduKey && db.shop.baiduSecret)
-              ? '✅ 已启用百度识别（存本机，不上云）'
-              : 'Key 存在本机 IndexedDB，不会随菜单发布上云。'}
+          <div className="sub">
+            {online ? '✅ 已联机，语音识别可用（走服务器）' : '未联机：仅 iPhone 可语音点菜，联机后全平台可用'}
           </div>
         </div>
 

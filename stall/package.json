@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "node check.mjs",
-    "pb-setup": "node scripts/pb-setup.mjs"
+    "pb-setup": "node scripts/pb-setup.mjs",
+    "test-baidu": "node scripts/test-baidu.mjs"
   },
   "dependencies": {
     "idb-keyval": "^6.2.1",
