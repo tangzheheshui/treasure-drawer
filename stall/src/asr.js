@@ -56,7 +56,7 @@ function webkitListen({ onText, onEnd, onError }) {
 
 // ── 服务器代理（百度一句话识别，key 在服务器）：按住录、松手停 → 转 16k WAV → POST 代理 ──
 // 同步返回 stop（松手才能真的停），拿麦克风/录音在内部异步进行。
-function serverListen({ onVolume, onEnd, onError }, cfg) {
+function serverListen({ onVolume, onText, onEnd, onError, onCancel }, cfg) {
   let audioCtx = null, rec = null, raf = 0, stopped = false;
 
   const fail = (code, msg) => { onError && onError(code, msg); };
@@ -70,7 +70,7 @@ function serverListen({ onVolume, onEnd, onError }, cfg) {
     if (stopped) return;
     stopped = true;
     if (rec && rec.state !== 'inactive') { try { rec.stop(); } catch { /* 已停 */ } }
-    else cleanup(); // 还没开始录音（在等权限/已结束），直接清理
+    else { cleanup(); onCancel && onCancel(); } // 录音还没开始就松手：静默结束，别卡在「正在听」
   };
   active = stop;
 
@@ -95,8 +95,10 @@ function serverListen({ onVolume, onEnd, onError }, cfg) {
 
     rec = new MediaRecorder(cachedStream);
     const chunks = [];
+    let partialTimer = null;
     rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
     rec.onstop = async () => {
+      if (partialTimer) clearInterval(partialTimer);
       cleanup();
       if (!chunks.length) { onEnd && onEnd(''); return; } // 没录到声音
       try {
@@ -119,6 +121,17 @@ function serverListen({ onVolume, onEnd, onError }, cfg) {
 
     rec.start();
     raf = requestAnimationFrame(tick);
+
+    // 分段识别：按住期间每 2.5 秒把已录的音频发百度，实时上屏粗文字
+    partialTimer = setInterval(async () => {
+      if (stopped || chunks.length < 2) return;
+      const snapshot = chunks.slice();
+      try {
+        const wav = await blobToWav16k(new Blob(snapshot, { type: rec.mimeType || 'audio/webm' }));
+        const text = await proxyRecognize(wav, cfg);
+        if (!stopped && text && onText) onText(text);
+      } catch { /* 分段识别失败静默，别打断录音 */ }
+    }, 2500);
   })();
 
   return stop;

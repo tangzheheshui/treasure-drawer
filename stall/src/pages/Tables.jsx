@@ -18,6 +18,7 @@ export default function Tables({ db, update, nav, onAdmin }) {
   // ── 语音点菜：按住说 → 松手识别 → 预览改单 → 选桌 ──
   const [listening, setListening] = useState(false);
   const [vol, setVol] = useState(0);
+  const [live, setLive] = useState('');            // 分段识别的实时粗文字
   const [preview, setPreview] = useState(null);   // { text, items:[{dishId,name,qty,fuzzy,sel}], leftover }
   const [pickTable, setPickTable] = useState(null); // 预览确认后待选桌的 items
   const recRef = useRef(null);
@@ -28,9 +29,11 @@ export default function Tables({ db, update, nav, onAdmin }) {
       return;
     }
     setVol(0);
+    setLive('');
     setListening(true);
     recRef.current = asrListen({
       onVolume: setVol,
+      onText: setLive,
       onEnd: (text) => {
         setListening(false);
         if (text) setPreview(parseOrderTranscript(text, db.dishes));
@@ -41,6 +44,7 @@ export default function Tables({ db, update, nav, onAdmin }) {
         if (code === 'not-allowed' || code === 'service-not-allowed') alert('麦克风没权限，请在浏览器设置里允许后重试');
         else if (code !== 'unsupported') alert(msg || '识别失败，请重试或直接手点');
       },
+      onCancel: () => setListening(false), // 录音未开始就松手：静默退出
     }, db.shop);
   };
   const stopVoice = () => { recRef.current?.(); };
@@ -197,7 +201,7 @@ export default function Tables({ db, update, nav, onAdmin }) {
           <div className="listen">
             <div className="micbig" style={{ transform: `scale(${1 + Math.min(1, vol * 3) * 0.3})` }}>🎤</div>
             <div className="volmeter"><span style={{ width: `${Math.min(100, vol * 400)}%` }} /></div>
-            <div className="ltext">正在听…</div>
+            <div className="ltext">{live || '正在听…'}</div>
             <div className="sub" style={{ color: '#fff' }}>按住说话，松开识别</div>
           </div>
         </div>
