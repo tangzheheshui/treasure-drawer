@@ -4,15 +4,14 @@
 // 1) 服务器代理（推荐，百度 key 配在 PocketBase 服务器，摊主零配置）：
 //    摊主已联机（shop.pbBase + pbId）→ 录音/转码在前端，音频 POST 到
 //    `${pbBase}/api/baidu-asr`，由服务器换 token 调百度返回文字。安卓/微信/App 通用。
-// 2) 浏览器内置 ASR（兜底，未联机时）：webkitSpeechRecognition zh-CN，
-//    iPhone Safari 可用、边说边上屏；安卓 Chrome 国内常不通。
+// 2) 浏览器内置 ASR（兜底，未联机时）：webkitSpeechRecognition zh-CN，边说边上屏。
 //
-// 接口：
-//   asrAvailable(cfg) → bool
-//   asrLive(cfg) → bool           是否支持边说边上屏（仅浏览器 ASR true）
-//   asrListen(handlers, cfg) → stopFn
-//     handlers.onText(全文) / onEnd(最终文字) / onError(code, msg)
-//   cfg = db.shop
+// 交互为「按住说话」：asrListen 一调用就开始收音，返回的 stopFn 在松手时调用 → 识别。
+// 回调：
+//   onVolume(0~1)  实时音量（仅服务器代理有，用来画波形让摊主知道在录）
+//   onText(全文)   实时文字（仅浏览器 ASR 有 interim）
+//   onEnd(最终文字)
+//   onError(code, msg)
 
 import { authToken } from './sync.js';
 
@@ -29,7 +28,7 @@ export function asrListen(handlers, cfg) {
   return online(cfg) ? serverListen(handlers, cfg) : webkitListen(handlers);
 }
 
-// ── 浏览器内置 ASR（未联机兜底）──
+// ── 浏览器内置 ASR（未联机兜底）：按住说，松手 stop → 出字 ──
 function webkitListen({ onText, onEnd, onError }) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { onError && onError('unsupported', '此浏览器不支持语音识别'); return () => {}; }
@@ -54,9 +53,9 @@ function webkitListen({ onText, onEnd, onError }) {
   return stop;
 }
 
-// ── 服务器代理（百度一句话识别，key 在服务器）：录音 → 静音检测结束 → 转 16k WAV → POST 代理 ──
-async function serverListen({ onEnd, onError }, cfg) {
-  let stream, audioCtx, rec, raf, stopped = false, speaking = false, silentSince = 0;
+// ── 服务器代理（百度一句话识别，key 在服务器）：按住录、松手停 → 转 16k WAV → POST 代理 ──
+async function serverListen({ onVolume, onEnd, onError }, cfg) {
+  let stream, audioCtx, rec, raf, stopped = false;
 
   const fail = (code, msg) => { onError && onError(code, msg); };
   try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
@@ -79,7 +78,7 @@ async function serverListen({ onEnd, onError }, cfg) {
     try { source.disconnect(); } catch { /* 已断 */ }
     stream.getTracks().forEach((t) => t.stop());
     try { audioCtx.close(); } catch { /* 忽略 */ }
-    if (!speaking) { onEnd && onEnd(''); return; } // 全程没听到声音，不调接口
+    if (!chunks.length) { onEnd && onEnd(''); return; } // 没录到声音
     try {
       const wav = await blobToWav16k(new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
       const text = await proxyRecognize(wav, cfg);
@@ -89,14 +88,12 @@ async function serverListen({ onEnd, onError }, cfg) {
     }
   };
 
-  // 静音检测：先有声（speaking），之后连续静音超时 → 结束（点屏幕也能提前结束）
+  // 实时音量（波形反馈）：每帧算 rms 抛给 UI
   const tick = () => {
     analyser.getByteTimeDomainData(volBuf);
     let sum = 0;
     for (let i = 0; i < volBuf.length; i++) { const v = (volBuf[i] - 128) / 128; sum += v * v; }
-    const rms = Math.sqrt(sum / volBuf.length);
-    if (rms > 0.025) { speaking = true; silentSince = Date.now(); }
-    else if (speaking && Date.now() - silentSince > 1500) { stop(); return; }
+    onVolume && onVolume(Math.sqrt(sum / volBuf.length));
     raf = requestAnimationFrame(tick);
   };
 

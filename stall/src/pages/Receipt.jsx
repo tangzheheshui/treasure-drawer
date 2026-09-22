@@ -25,7 +25,7 @@ export default function Receipt({ db, orderId, nav }) {
           <div className="r-div">--------------------------------</div>
           {items.map((i) => (
             <div className="r-item" key={i.id}>
-              <span>{i.name}{i.spec ? `(${i.spec})` : ''} ×{i.qty}</span>
+              <span>{i.name}{i.spec ? `(${i.spec})` : ''} ×{i.qty}{i.unit || '份'}</span>
               <span>¥{i.price * i.qty}</span>
             </div>
           ))}

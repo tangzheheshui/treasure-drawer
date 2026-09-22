@@ -57,7 +57,7 @@ const App = () => {
   const addLine = (d, sel) => setCart((c) => {
     const spec = selText(d, sel);
     const key = `${d.id}|${spec}`;
-    return { ...c, [key]: { dishId: d.id, name: d.name, price: unitPrice(d, sel), qty: (c[key]?.qty || 0) + 1, spec, sel: sel || undefined } };
+    return { ...c, [key]: { dishId: d.id, name: d.name, price: unitPrice(d, sel), qty: (c[key]?.qty || 0) + 1, spec, sel: sel || undefined, unit: d.unit || '份' } };
   });
   const tapDish = (d) => {
     if (d.soldOut) return;
@@ -75,7 +75,7 @@ const App = () => {
   const inc = (key) => setCart((c) => ({ ...c, [key]: { ...c[key], qty: c[key].qty + 1 } }));
 
   const submit = async () => {
-    const items = lines.map(([, i]) => ({ name: i.name, price: i.price, qty: i.qty, note: '', spec: i.spec || '' }));
+    const items = lines.map(([, i]) => ({ name: i.name, price: i.price, qty: i.qty, note: '', spec: i.spec || '', unit: i.unit || '份' }));
     if (!items.length) return;
     const pb = new PocketBase(base);
     let code = genCode();
@@ -133,7 +133,7 @@ const App = () => {
               return (
                 <div key={k} style={{ borderBottom: '1px solid #eee9dd', paddingBottom: 6, marginBottom: 6 }}>
                   <div className="c-line">
-                    <span>{m.code ? `单号 ${m.code} · ` : ''}{m.items.map((i) => `${i.name}${i.spec ? `(${i.spec})` : ''}×${i.qty}`).join('，')}</span>
+                    <span>{m.code ? `单号 ${m.code} · ` : ''}{m.items.map((i) => `${i.name}${i.spec ? `(${i.spec})` : ''}×${i.qty}${i.unit || '份'}`).join('，')}</span>
                     <b>¥{m.total}</b>
                   </div>
                   {!table && rem !== undefined && (

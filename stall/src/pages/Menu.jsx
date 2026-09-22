@@ -24,12 +24,13 @@ export default function MenuPage({ db, update }) {
       }))
       .filter((g) => g.name && g.opts.length);
     if (!name || Number.isNaN(price)) return;
+    const unit = (edit.unit || '').trim() || '份';
     update((d) => {
       if (edit.id) {
         const it = d.dishes.find((x) => x.id === edit.id);
-        Object.assign(it, { name, price, cost, soldOut: !!edit.soldOut, specs });
+        Object.assign(it, { name, price, cost, soldOut: !!edit.soldOut, specs, unit });
       } else {
-        d.dishes.push({ id: uid(), catId: edit.catId, name, price, cost, soldOut: false, specs });
+        d.dishes.push({ id: uid(), catId: edit.catId, name, price, cost, soldOut: false, specs, unit });
       }
     });
     setEdit(null);
@@ -147,6 +148,8 @@ export default function MenuPage({ db, update }) {
             <input className="f" type="number" inputMode="decimal" value={edit.price} onChange={(e) => setEdit({ ...edit, price: e.target.value })} />
             <div className="label">成本价（元，选填，用于毛利统计）</div>
             <input className="f" type="number" inputMode="decimal" value={edit.cost ?? ''} onChange={(e) => setEdit({ ...edit, cost: e.target.value })} placeholder="不填则不计成本" />
+            <div className="label">单位（串/瓶/份/个…）</div>
+            <input className="f" value={edit.unit ?? ''} onChange={(e) => setEdit({ ...edit, unit: e.target.value })} placeholder="默认「份」" />
 
             <div className="label">规格（选填，最多两组，如辣度/份量；选项可带差价）</div>
             {(edit.specs || []).map((g, gi) => (

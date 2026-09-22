@@ -14,6 +14,7 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
   // 语音点菜：listening=正在听（实时上屏）→ preview=整理出的单子预览（改完才进购物车）
   const [listening, setListening] = useState(false);
   const [live, setLive] = useState('');
+  const [vol, setVol] = useState(0);             // 实时音量（波形反馈）
   const [preview, setPreview] = useState(null); // { text, items:[{dishId,name,qty,fuzzy,sel}], leftover }
   const [swap, setSwap] = useState(-1);         // 预览里正在换菜的那一行
   const recRef = useRef(null);                  // 适配器返回的 stop 函数
@@ -30,7 +31,7 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
   const addLine = (d, sel) => setCart((c) => {
     const spec = specSelText(d, sel);
     const key = `${d.id}|${spec}`;
-    return { ...c, [key]: { dishId: d.id, name: d.name, price: unitPriceOf(d, sel), qty: (c[key]?.qty || 0) + 1, note: c[key]?.note || '', spec, sel: sel || undefined } };
+    return { ...c, [key]: { dishId: d.id, name: d.name, price: unitPriceOf(d, sel), qty: (c[key]?.qty || 0) + 1, note: c[key]?.note || '', spec, sel: sel || undefined, unit: d.unit || '份' } };
   });
   // 带规格的菜先弹选择；没规格的直接进购物车
   const tapDish = (d) => {
@@ -52,13 +53,16 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
   // ── 语音点菜：引擎走 asr.js 适配器（填了百度 key 走百度，否则浏览器内置 ASR）──
   const startVoice = () => {
     setLive('');
+    setVol(0);
     setSwap(-1);
     setListening(true);
     recRef.current = asrListen({
       onText: setLive,
+      onVolume: setVol,
       onEnd: (text) => {
         setListening(false);
         if (text) setPreview(parseOrderTranscript(text, db.dishes)); // 整理成单子预览，改完才入账
+        else alert('没听到声音：请确认已点「允许」麦克风权限、麦克风没静音，再按住大声说一遍');
       },
       onError: (code, msg) => {
         setListening(false);
@@ -83,7 +87,7 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
         if (!d || d.soldOut) return;
         const spec = specSelText(d, r.sel);
         const key = `${d.id}|${spec}`;
-        n[key] = { dishId: d.id, name: d.name, price: unitPriceOf(d, r.sel), qty: (n[key]?.qty || 0) + r.qty, note: n[key]?.note || '', spec, sel: r.sel || undefined };
+        n[key] = { dishId: d.id, name: d.name, price: unitPriceOf(d, r.sel), qty: (n[key]?.qty || 0) + r.qty, note: n[key]?.note || '', spec, sel: r.sel || undefined, unit: d.unit || '份' };
       });
       return n;
     });
@@ -92,11 +96,11 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
 
   const submit = () => {
     if (!lines.length) return;
-    const items = lines.map(([, i]) => ({ name: i.name, price: i.price, qty: i.qty, note: i.note || '', spec: i.spec || '' }));
+    const items = lines.map(([, i]) => ({ name: i.name, price: i.price, qty: i.qty, note: i.note || '', spec: i.spec || '', unit: i.unit || '份' }));
     if (walk) {
       let newId;
       update((d) => { const o = submitOrder(d, { mode: 'walk' }, items, true); newId = o.id; });
-      say(`新散单，${items.map((i) => `${i.name}${i.spec || ''}${i.qty}份`).join('，')}`);
+      say(`新散单，${items.map((i) => `${i.name}${i.spec || ''}${i.qty}${i.unit || '份'}`).join('，')}`);
       nav(`#/o/${newId}`);
       return;
     }
@@ -159,9 +163,14 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
       </div>
 
       <div className="cartbar">
-        {asrAvailable(db.shop) && <button className="micbtn" title="说话点菜" onClick={listening ? stopVoice : startVoice}>🎤</button>}
+        {asrAvailable(db.shop) && (
+          <button className="micbtn" title="按住说话，松开识别"
+                  onPointerDown={startVoice}
+                  onPointerUp={stopVoice}
+                  onPointerCancel={stopVoice}>🎤</button>
+        )}
         <span className="sum">¥{total}</span>
-        <span className="sub">{count} 份</span>
+        <span className="sub">{count} 件</span>
         <button className="btn primary" disabled={!lines.length} onClick={submit}>
           提交{add ? '加单' : '下单'}
         </button>
@@ -193,13 +202,14 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
         </div>
       )}
 
-      {/* 正在听：实时转写上屏，说完停顿自动整理；点任意处提前结束 */}
+      {/* 按住说话中：波形跳动表示在录入；松手识别 */}
       {listening && (
         <div className="mask" onClick={stopVoice}>
           <div className="listen">
-            <div className="micbig">🎤</div>
-            <div className="ltext">{asrLive(db.shop) ? (live || '请说话…') : '正在听…'}</div>
-            <div className="sub" style={{ color: '#fff' }}>例如「羊肉串二十串中辣可乐两瓶」<br />说完停顿自动整理，点屏幕任意处结束</div>
+            <div className="micbig" style={{ transform: `scale(${1 + Math.min(1, vol * 3) * 0.3})` }}>🎤</div>
+            <div className="volmeter"><span style={{ width: `${Math.min(100, vol * 400)}%` }} /></div>
+            <div className="ltext">{asrLive(db.shop) ? (live || '正在听…') : '正在听…'}</div>
+            <div className="sub" style={{ color: '#fff' }}>按住说话，松开识别</div>
           </div>
         </div>
       )}
@@ -208,7 +218,7 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
       {preview && (
         <div className="mask" onClick={() => setPreview(null)}>
           <div className="modal" style={{ width: '92%', maxWidth: 400, maxHeight: '80vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
-            <h3>🎙 听到的单子（{previewCount} 份）</h3>
+            <h3>🎙 听到的单子（{previewCount} 件）</h3>
             <div className="sub" style={{ marginBottom: 4 }}>原话：{preview.text || '（空）'}</div>
             {preview.items.map((r, i) => {
               const d = db.dishes.find((x) => x.id === r.dishId);
@@ -221,7 +231,7 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
                       <div className="sub">点菜名可换菜</div>
                     </div>
                     <button className="sqbtn" onClick={() => editRow(i, { qty: Math.max(1, r.qty - 1) })}>−</button>
-                    <b>{r.qty}</b>
+                    <b>{r.qty}<span style={{ fontSize: 12, fontWeight: 400 }}>{d?.unit || '份'}</span></b>
                     <button className="sqbtn" onClick={() => editRow(i, { qty: Math.min(999, r.qty + 1) })}>＋</button>
                     <button className="sqbtn del" onClick={() => dropRow(i)}>✕</button>
                   </div>
@@ -272,7 +282,7 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
                     <b>{i.name}</b>{i.spec && <span className="sub"> · {i.spec}</span>} <span className="sub">¥{i.price}</span>
                   </div>
                   <button className="sqbtn" onClick={() => decLine(key)}>−</button>
-                  <b>{i.qty}</b>
+                  <b>{i.qty}<span style={{ fontSize: 12, fontWeight: 400 }}>{i.unit || '份'}</span></b>
                   <button className="sqbtn" onClick={() => incLine(key)}>＋</button>
                   <button className="sqbtn del" onClick={() => setCart((c) => { const { [key]: _, ...rest } = c; return rest; })}>✕</button>
                 </div>

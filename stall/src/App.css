@@ -166,6 +166,8 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; 
 .micbig { font-size: 56px; text-align: center; animation: micpulse 1.2s ease-in-out infinite; }
 @keyframes micpulse { 0%, 100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.18); opacity: 1; } }
 .listen { text-align: center; color: #fff; width: 84%; max-width: 340px; }
+.volmeter { width: 70%; height: 6px; background: rgba(255,255,255,.25); border-radius: 99px; margin: 10px auto 0; overflow: hidden; }
+.volmeter span { display: block; height: 100%; background: #7cf2a8; border-radius: 99px; transition: width .08s; }
 .ltext { font-size: 21px; line-height: 1.5; min-height: 64px; margin: 16px 0 10px; word-break: break-all; }
 .vrow { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); padding: 9px 0; }
 .vrow .grow b { font-size: 16px; }

@@ -7,7 +7,7 @@ export const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.
 
 export function seed() {
   const c1 = uid(), c2 = uid(), c3 = uid(), c4 = uid();
-  const d = (catId, name, price) => ({ id: uid(), catId, name, price, soldOut: false });
+  const d = (catId, name, price, unit = '份') => ({ id: uid(), catId, name, price, unit, soldOut: false });
   return {
     shop: { name: '老王烧烤', tableCount: 8, voice: true, volume: 1 },
     cats: [
@@ -17,10 +17,10 @@ export function seed() {
       { id: c4, name: '小菜' },
     ],
     dishes: [
-      d(c1, '羊肉串', 6), d(c1, '牛肉串', 6), d(c1, '鸡翅', 8), d(c1, '烤面筋', 3), d(c1, '烤韭菜', 5),
-      d(c2, '啤酒（瓶）', 10), d(c2, '可乐', 3), d(c2, '矿泉水', 2),
-      d(c3, '烤冷面', 8), d(c3, '炒粉', 10), d(c3, '烤馒头片', 3),
-      d(c4, '花毛一体', 6), d(c4, '拍黄瓜', 8), d(c4, '蒜泥茄子', 10),
+      d(c1, '羊肉串', 6, '串'), d(c1, '牛肉串', 6, '串'), d(c1, '鸡翅', 8, '串'), d(c1, '烤面筋', 3, '串'), d(c1, '烤韭菜', 5, '串'),
+      d(c2, '啤酒', 10, '瓶'), d(c2, '可乐', 3, '瓶'), d(c2, '矿泉水', 2, '瓶'),
+      d(c3, '烤冷面', 8, '份'), d(c3, '炒粉', 10, '份'), d(c3, '烤馒头片', 3, '份'),
+      d(c4, '花毛一体', 6, '份'), d(c4, '拍黄瓜', 8, '份'), d(c4, '蒜泥茄子', 10, '份'),
     ],
     orders: [], // { id, tableNo, status: 'active'|'closed', batches:[{id,at,items:[{id,name,price,qty,note,served}],settled}], createdAt, closedAt }
     calls: [],  // [{ tableNo, at }]
@@ -114,7 +114,7 @@ export function submitOrder(db, target, items, isAdd, guests) {
   const o = activeOrder(db, tableNo);
   const lined = items.map((i) => {
     const dish = db.dishes.find((x) => x.name === i.name); // 下单时快照成本价（毛利统计的基础）
-    return { ...i, id: uid(), served: false, cost: Number(dish?.cost ?? i.cost ?? 0) };
+    return { ...i, id: uid(), served: false, cost: Number(dish?.cost ?? i.cost ?? 0), unit: i.unit || dish?.unit || '份' };
   });
   const batch = { id: uid(), at: Date.now(), items: lined, settled: false, pbId: isWalk ? target.pbId : undefined };
   if (isWalk) {
@@ -133,7 +133,7 @@ export function submitOrder(db, target, items, isAdd, guests) {
 }
 
 export function sayItemsText(tableNo, items, prefix) {
-  const body = items.map((i) => `${i.name}${i.spec || ''}${i.qty}份`).join('，');
+  const body = items.map((i) => `${i.name}${i.spec || ''}${i.qty}${i.unit || '份'}`).join('，');
   return `${tableNo}号桌${prefix}，${body}`;
 }
 
