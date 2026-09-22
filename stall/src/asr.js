@@ -119,7 +119,9 @@ function serverListen({ onVolume, onText, onEnd, onError, onCancel }, cfg) {
       raf = requestAnimationFrame(tick);
     };
 
-    rec.start();
+    // 400ms 一片落 chunks：按住期间分段识别才有料可发（不给 timeslice 时
+    // dataavailable 只在 stop 时来一次，分段上屏永远哑火）
+    rec.start(400);
     raf = requestAnimationFrame(tick);
 
     // 分段识别：按住期间每 2.5 秒把已录的音频发百度，实时上屏粗文字
@@ -137,13 +139,15 @@ function serverListen({ onVolume, onText, onEnd, onError, onCancel }, cfg) {
   return stop;
 }
 
-// 调 PocketBase 服务器上的 /api/baidu-asr 代理（带登录 token 校验身份）
+// 调 PocketBase 服务器上的 /api/baidu-asr 代理（带登录 token 校验身份）。
+// 20s 超时：服务器挂了/网络黑洞时也能抛错走 onError，绝不悬着不出结果。
 async function proxyRecognize(wav, cfg) {
   const base = (cfg.pbBase || '').replace(/\/$/, '');
   const res = await fetch(`${base}/api/baidu-asr`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: authToken() },
     body: JSON.stringify({ format: 'wav', rate: 16000, len: wav.byteLength, speech: toBase64(wav) }),
+    signal: AbortSignal.timeout(20000),
   });
   const j = await res.json().catch(() => ({}));
   if (res.ok && j.text) return j.text;

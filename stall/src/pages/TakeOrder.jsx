@@ -69,6 +69,7 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
         if (code === 'not-allowed' || code === 'service-not-allowed') alert('麦克风没权限，请在浏览器设置里允许后重试');
         else if (code !== 'unsupported') alert(msg || '识别失败，请重试或直接手点');
       },
+      onCancel: () => setListening(false), // 录音未开始就松手：静默退出，别卡在「正在听」
     }, db.shop);
   };
   const stopVoice = () => { recRef.current?.(); };
@@ -264,7 +265,7 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
             {!preview.items.length && <div className="sub" style={{ padding: '8px 0' }}>没听出菜名，再说一遍试试？</div>}
             {preview.leftover && <div className="sub" style={{ color: 'var(--warn)' }}>没对上号：「{preview.leftover}」（对不上就手动加）</div>}
             <div className="mfoot">
-              <button className="btn" onClick={() => { setPreview(null); startVoice(); }}>再说一遍</button>
+              <button className="btn" onClick={() => setPreview(null)}>再说一遍</button>
               <button className="btn primary" disabled={!preview.items.length} onClick={mergePreview}>进购物车</button>
             </div>
           </div>

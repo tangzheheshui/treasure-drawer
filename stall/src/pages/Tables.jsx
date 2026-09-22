@@ -16,7 +16,11 @@ export default function Tables({ db, update, nav, onAdmin }) {
   const showWalk = shopMode !== 'table';
 
   // ── 语音点菜：按住说 → 松手识别 → 预览改单 → 选桌 ──
-  const [listening, setListening] = useState(false);
+  // 手势铁律：**按住期间绝不卸载按钮**。一按就卸载 = 把手指的触摸目标从 DOM 摘掉，
+  // 触摸事件从此派发到「已脱离文档的节点」，冒不到 document，任何松手监听都收不到
+  // ——真机松手必卡死的根。配合 Pointer 事件 + setPointerCapture：按下瞬间把指针
+  // 捕获到按钮上，之后蒙层盖上、手指挪动，pointerup 都保证派回按钮本体。
+  const [phase, setPhase] = useState(null);        // null | 'listen'（正在听）| 'recognize'（识别中）
   const [vol, setVol] = useState(0);
   const [live, setLive] = useState('');            // 分段识别的实时粗文字
   const [preview, setPreview] = useState(null);   // { text, items:[{dishId,name,qty,fuzzy,sel}], leftover }
@@ -30,39 +34,40 @@ export default function Tables({ db, update, nav, onAdmin }) {
     }
     setVol(0);
     setLive('');
-    setListening(true);
+    setPhase('listen');
     recRef.current = asrListen({
       onVolume: setVol,
       onText: setLive,
       onEnd: (text) => {
-        setListening(false);
+        setPhase(null);
         if (text) setPreview(parseOrderTranscript(text, db.dishes));
         else alert('没听到声音：请确认麦克风权限已允许、麦克风没静音，再按住说一遍');
       },
       onError: (code, msg) => {
-        setListening(false);
+        setPhase(null);
         if (code === 'not-allowed' || code === 'service-not-allowed') alert('麦克风没权限，请在浏览器设置里允许后重试');
         else if (code !== 'unsupported') alert(msg || '识别失败，请重试或直接手点');
       },
-      onCancel: () => setListening(false), // 录音未开始就松手：静默退出
+      onCancel: () => setPhase(null), // 录音未开始就松手：静默退出
     }, db.shop);
   };
   const stopVoice = () => {
-    setListening(false); // 松手立即退出「正在听」，不依赖识别引擎回调
-    recRef.current?.();
+    if (!recRef.current) return;
+    setPhase((p) => (p === 'listen' ? 'recognize' : p)); // 松手立即转「识别中」，绝不停在「正在听」
+    recRef.current();
+    recRef.current = null;
   };
 
-  // 按住说话期间，监听全局「松手」：无论手指在按钮还是波形层上，都触发停止
+  // 保险带：万一 pointerup 没落到按钮上（怪异 webview），document 上兜一手
   useEffect(() => {
-    if (!listening) return;
-    const end = () => { setListening(false); recRef.current?.(); };
-    document.addEventListener('touchend', end);
-    document.addEventListener('mouseup', end);
+    if (phase !== 'listen') return;
+    document.addEventListener('pointerup', stopVoice);
+    document.addEventListener('pointercancel', stopVoice);
     return () => {
-      document.removeEventListener('touchend', end);
-      document.removeEventListener('mouseup', end);
+      document.removeEventListener('pointerup', stopVoice);
+      document.removeEventListener('pointercancel', stopVoice);
     };
-  }, [listening]);
+  }, [phase]);
 
   const editRow = (i, patch) => setPreview((p) => ({ ...p, items: p.items.map((r, k) => (k === i ? { ...r, ...patch } : r)) }));
   const dropRow = (i) => setPreview((p) => ({ ...p, items: p.items.filter((_, k) => k !== i) }));
@@ -181,12 +186,17 @@ export default function Tables({ db, update, nav, onAdmin }) {
         )}
       </div>
 
-      {/* ── 底部居中「按住说话」大按钮 ── */}
-      {asrAvailable(db.shop) && !listening && !preview && !pickTable && (
+      {/* ── 底部居中「按住说话」大按钮（听/识别期间也不卸载，蒙层盖在上面）── */}
+      {asrAvailable(db.shop) && !preview && !pickTable && (
         <button className="voice-btn"
-                onTouchStart={(e) => { e.preventDefault(); startVoice(); }}
-                onMouseDown={startVoice}
-                onTouchCancel={stopVoice}
+                onPointerDown={(e) => {
+                  e.preventDefault(); // 压掉浏览器补发的合成鼠标事件/选中（touchstart 是 passive，preventDefault 无效）
+                  try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* 无捕获的引擎：按钮常驻不卸载也能收到 up */ }
+                  startVoice();
+                }}
+                onPointerUp={stopVoice}
+                onPointerCancel={stopVoice}
+                onLostPointerCapture={stopVoice}
                 onContextMenu={(e) => e.preventDefault()}>
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
@@ -198,14 +208,23 @@ export default function Tables({ db, update, nav, onAdmin }) {
         </button>
       )}
 
-      {/* 按住说话中 */}
-      {listening && (
-        <div className="mask" onClick={stopVoice} onContextMenu={(e) => e.preventDefault()}>
+      {/* 按住说话中 / 松手识别中：蒙层盖住按钮（按钮本体仍在 DOM 里守着这次手势） */}
+      {phase && (
+        <div className="mask" onContextMenu={(e) => e.preventDefault()}>
           <div className="listen">
-            <div className="micbig" style={{ transform: `scale(${1 + Math.min(1, vol * 3) * 0.3})` }}>🎤</div>
-            <div className="volmeter"><span style={{ width: `${Math.min(100, vol * 400)}%` }} /></div>
-            <div className="ltext">{live || '正在听…'}</div>
-            <div className="sub" style={{ color: '#fff' }}>按住说话，松开识别</div>
+            {phase === 'listen' ? (
+              <>
+                <div className="micbig" style={{ transform: `scale(${1 + Math.min(1, vol * 3) * 0.3})` }}>🎤</div>
+                <div className="volmeter"><span style={{ width: `${Math.min(100, vol * 400)}%` }} /></div>
+                <div className="ltext">{live || '正在听…'}</div>
+                <div className="sub" style={{ color: '#fff' }}>按住说话，松开识别</div>
+              </>
+            ) : (
+              <>
+                <div className="micbig">⏳</div>
+                <div className="ltext">识别中…</div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -238,7 +257,7 @@ export default function Tables({ db, update, nav, onAdmin }) {
             {!preview.items.length && <div className="sub" style={{ padding: '8px 0' }}>没听出菜名，再说一遍试试？</div>}
             {preview.leftover && <div className="sub" style={{ color: 'var(--warn)' }}>没对上号：「{preview.leftover}」（对不上就手动加）</div>}
             <div className="mfoot">
-              <button className="btn" onClick={() => { setPreview(null); startVoice(); }}>再说一遍</button>
+              <button className="btn" onClick={() => setPreview(null)}>再说一遍</button>
               <button className="btn primary" disabled={!preview.items.length} onClick={confirmPreview}>确认，选桌</button>
             </div>
           </div>

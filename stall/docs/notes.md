@@ -118,3 +118,17 @@ seen: [订单记录 id]               // 实时去重
 - 语音解析升级：菜名后空隙认规格词（每组最多一个，长选项优先），「羊肉串中辣十串」「羊肉串二十串中辣」都通；预览行内可直接点 chip 改规格。解析断言新增 4 条（跟菜名/前后数量、两菜规格不串）。
 - 详情/小票显示规格；语音播报带上规格（「羊肉串中辣 20 份」）。顾客 H5 同套：点带规格的菜弹底部选择层（`customer.css` 加 `c-chip` 系列），提交时 item 带 spec；「我点的」列表显示 `名称(规格)×份`。
 - 未做（留后）：规格改价后旧订单项不追溯（快照即定格，符合「已下的单不受影响」既有口径）。
+
+## 按住说话松手卡死 · 断根（2026-09-22，连修 5 次后的第 6 次）
+前 5 次都在修表象（stop 同步返回、全局松手监听、touch 事件、立即退出 listening），根因一直没动：
+1. **按下瞬间按钮被卸载**：工作台大按钮渲染条件带 `!listening`，touchstart 一到 → setListening(true) → React 立刻把按钮摘出 DOM。触摸事件按规范锁定在 touchstart 的目标元素上，而派发到「已脱离文档节点」的事件不会冒泡到 document——真机（iOS Safari/微信 webview 按规范执行）的 touchend 谁都收不到：按钮自己的 handler 没了、全局 document 监听收不到、蒙层 click 也落空 → 必卡死。桌面鼠标没有这种目标锁定，所以每轮「电脑上测是好的」、手机上照坏——**测试环境复现不了真机行为，是连续误判的原因**。
+2. **onTouchStart 里的 preventDefault() 是空操作**：React 17+ 把根节点 touchstart 注册成 passive（控制台实锤 "Unable to preventDefault inside passive event listener"），合成鼠标事件/长按行为压不住。
+3. **rec.start() 没给 timeslice**：dataavailable 只在 stop 时来一次，按住期间 chunks 恒空 → 「每 2.5s 分段识别上屏」从未生效过（一直显示「正在听…」零反馈）。
+修法（对照：点单页 🎤 小按钮本来就是常驻+pointer 事件，从没这毛病）：
+- 按钮渲染条件去掉 listening 相关项，**手势期间绝不卸载**；蒙层（z-50）只做视觉覆盖。
+- 改 **Pointer 事件 + setPointerCapture**（pointerdown 时捕获，pointerup/pointercancel/lostpointercapture 必派回按钮），preventDefault 也恢复有效；document 上再挂 pointerup 兜底。
+- 松手状态机 `phase: listen → recognize`：松手立即变「识别中…」（不是黑屏干等 2~4s 出预览）；proxyRecognize 加 20s 超时，任何路径都出得来。
+- `rec.start(400)`：分段识别真正有料，按住期间持续上屏。
+- 「再说一遍」从「点完自动开录」改成「关预览回工作台，再按住说」——全 App 只有一种手势。
+- TakeOrder 补 onCancel（录音未开始就松手会卡蒙层）。
+- 回归装甲 `npm run check-voice`（check-voice.mjs）：CDP 真触摸管线 + 假麦克风 + mock 识别代理，12 条断言含关键不变量「**按住期间 .voice-btn 必须仍在 DOM**」——旧代码跑必红（已验证），不再靠人肉真机回归。

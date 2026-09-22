@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "check": "node check.mjs",
     "pb-setup": "node scripts/pb-setup.mjs",
-    "test-baidu": "node scripts/test-baidu.mjs"
+    "test-baidu": "node scripts/test-baidu.mjs",
+    "check-voice": "node check-voice.mjs"
   },
   "dependencies": {
     "idb-keyval": "^6.2.1",
