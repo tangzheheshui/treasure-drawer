@@ -132,3 +132,14 @@ seen: [订单记录 id]               // 实时去重
 - 「再说一遍」从「点完自动开录」改成「关预览回工作台，再按住说」——全 App 只有一种手势。
 - TakeOrder 补 onCancel（录音未开始就松手会卡蒙层）。
 - 回归装甲 `npm run check-voice`（check-voice.mjs）：CDP 真触摸管线 + 假麦克风 + mock 识别代理，12 条断言含关键不变量「**按住期间 .voice-btn 必须仍在 DOM**」——旧代码跑必红（已验证），不再靠人肉真机回归。
+
+## 摊主端部署（2026-09-22 定稿）
+线上地址 **https://auth.tangzheheshui.cn/stall/**（人手机直接访问域名）：nginx `sites-available/auth` 的 `location /stall/` → `/var/www/stall/`，与 PocketBase 反代同域（pbBase 即 https://auth.tangzheheshui.cn）。部署流程：
+```
+npx vite build
+ssh ubuntu@193.112.26.217 'rm -rf /tmp/stall-dist && mkdir -p /tmp/stall-dist'
+scp -r dist/. ubuntu@193.112.26.217:/tmp/stall-dist/
+ssh ubuntu@193.112.26.217 'sudo rsync -a --delete /tmp/stall-dist/ /var/www/stall/ && sudo chown -R www-data:www-data /var/www/stall && rm -rf /tmp/stall-dist'
+```
+验证：`curl -s https://auth.tangzheheshui.cn/stall/ | grep -o 'main-[^"]*\.js'` 对上本地 dist 的文件名即新版。资产名带内容哈希，天然免缓存；index.html 无 Cache-Control，改动后真机下拉刷新一次即可。
+**教训（本轮事故）**：真机连续两天「修不好松手」，一半原因是 `/var/www/stall` 里躺着的一直是修复前的旧构建（17:29 那次部署早于当日所有修复）——**改完摊主端必须构建上去**，否则一切真机反馈都是对旧代码的反馈。
