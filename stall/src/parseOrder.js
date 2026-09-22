@@ -53,9 +53,18 @@ function fuzzyAt(text, lo, hi, name) {
 }
 
 // 主入口：raw=识别出的原话，dishes=当前菜单（售罄的不参与）
-// 返回 { text 原话, items:[{dishId,name,qty,fuzzy}], leftover 没对上号的尾巴 }
+// 返回 { text 原话, items:[{dishId,name,qty,fuzzy}], leftover 没对上号的尾巴, tableNo 话里指定的桌号|null }
 export function parseOrderTranscript(raw, dishes) {
-  const text = clean(raw);
+  // 先提取话里指定的桌号：「6号桌」「六号桌」「6桌」等，剩余文字再解析菜品
+  let tableNo = null;
+  let src = raw || '';
+  const m = src.match(/([0-9一二两三四五六七八九十]+)\s*号?\s*桌/);
+  if (m) {
+    tableNo = cnNum(m[1]);
+    src = src.replace(m[0], '');
+  }
+
+  const text = clean(src);
   const n = text.length;
   const avail = (dishes || []).filter((d) => d && d.name && !d.soldOut);
   const sorted = [...avail].sort((a, b) => b.name.length - a.name.length); // 长名优先，防「羊肉串」吃掉「羊肉串炒饭」
@@ -151,5 +160,5 @@ export function parseOrderTranscript(raw, dishes) {
   });
   items.forEach((x) => { x.qty = Math.min(999, Math.max(1, x.qty)); });
   const leftover = [...text].filter((c, k) => !used[k] && !MEASURE.includes(c)).join('').slice(0, 24);
-  return { text: (raw || '').trim(), items, leftover };
+  return { text: (raw || '').trim(), items, leftover, tableNo };
 }

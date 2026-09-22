@@ -3,6 +3,10 @@ html, body, #root { height: 100%; }
 body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; color: #1f2329;
        background: #f2f3f5; overflow: hidden; }
 
+/* 全局禁用长按选择/复制（语音点菜按住说话时，手机浏览器尤其微信会弹复制菜单） */
+body, .app, button, .tcard, .mask { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea { -webkit-user-select: text; user-select: text; }
+
 :root {
   --bg: #f2f3f5; --card: #ffffff; --ink: #1f2329; --sub: #6b7280;
   --line: #e6e8eb; --brand: #4e5969; --ok: #2b7a4b; --warn: #c2571a; --danger: #b42318;

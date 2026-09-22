@@ -49,28 +49,34 @@ export default function Tables({ db, update, nav, onAdmin }) {
   const dropRow = (i) => setPreview((p) => ({ ...p, items: p.items.filter((_, k) => k !== i) }));
 
   // 预览确认 → 进入选桌
-  const confirmPreview = () => {
-    setPickTable(preview.items.map((r) => ({ dishId: r.dishId, qty: r.qty, sel: r.sel, note: r.note || '' })));
-    setPreview(null);
-  };
-
-  const buildItems = () => pickTable.map((r) => {
+  const buildItems = (rows) => rows.map((r) => {
     const d = db.dishes.find((x) => x.id === r.dishId);
     return { name: d.name, price: unitPriceOf(d, r.sel), qty: r.qty, note: r.note || '', spec: specSelText(d, r.sel), unit: d.unit || '份' };
   });
 
-  const submitTo = (tableNo) => {
-    const items = buildItems();
+  const submitTo = (tableNo, items) => {
     update((d) => { submitOrder(d, tableNo, items, false); });
     say(sayItemsText(tableNo, items, ''));
     setPickTable(null);
     nav(`#/table/${tableNo}`);
   };
-  const submitWalk = () => {
-    const items = buildItems();
+  const submitWalk = (items) => {
     update((d) => { submitOrder(d, { mode: 'walk' }, items, true); });
     say(`新散单，${items.map((i) => `${i.name}${i.spec || ''}${i.qty}${i.unit || '份'}`).join('，')}`);
     setPickTable(null);
+  };
+
+  // 预览确认：话里指定了桌号 → 直接下单；否则弹选桌
+  const confirmPreview = () => {
+    const rows = preview.items.map((r) => ({ dishId: r.dishId, qty: r.qty, sel: r.sel, note: r.note || '' }));
+    const items = buildItems(rows);
+    const t = preview.tableNo;
+    if (t && t >= 1 && t <= db.shop.tableCount) {
+      submitTo(t, items); // 已经说了「X号桌」，不弹选桌
+    } else {
+      setPickTable(rows);
+      setPreview(null);
+    }
   };
 
   return (
@@ -230,7 +236,7 @@ export default function Tables({ db, update, nav, onAdmin }) {
                 {nos.map((no) => {
                   const { state } = tableState(db, no);
                   return (
-                    <button key={no} className={`tcard pick ${state}`} onClick={() => submitTo(no)}>
+                    <button key={no} className={`tcard pick ${state}`} onClick={() => submitTo(no, buildItems(pickTable))}>
                       <span className="no">{no}号</span>
                       <span className="st">{ST_NAME[state]}</span>
                     </button>
@@ -239,7 +245,7 @@ export default function Tables({ db, update, nav, onAdmin }) {
               </div>
             )}
             {showWalk && (
-              <button className="btn primary block" style={{ marginTop: 12 }} onClick={submitWalk}>＋ 散客新单</button>
+              <button className="btn primary block" style={{ marginTop: 12 }} onClick={() => submitWalk(buildItems(pickTable))}>＋ 散客新单</button>
             )}
             <button className="btn block" style={{ marginTop: 8 }} onClick={() => setPickTable(null)}>取消</button>
           </div>
