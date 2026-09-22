@@ -56,7 +56,7 @@ function RankBars({ rows }) {
 }
 
 // 统计：按时间段看生意（今天/近7天/近30天/今年），跨度大自动按周/月聚合。
-export default function History({ db }) {
+export default function History({ db, nav }) {
   const [rk, setRk] = useState('d7');
   const def = RANGES.find((r) => r.key === rk);
   const from = def.from(), to = dayStartTs(1);
@@ -112,6 +112,24 @@ export default function History({ db }) {
   const noMargin = Object.entries(stat).filter(([, s]) => s.qty > 0).sort((a, b) => a[1].margin - b[1].margin).slice(0, 5)
     .filter(([, s]) => s.margin <= 0);
 
+  // 品类销量与净利润（按分类汇总，订单项按菜名回找分类）
+  const catStat = {};
+  list.forEach((o) => orderItems(o).forEach((i) => {
+    const dish = db.dishes.find((d) => d.name === i.name);
+    const cid = dish?.catId || '__other';
+    const s = catStat[cid] || (catStat[cid] = { qty: 0, sales: 0, profit: 0 });
+    s.qty += i.qty;
+    s.sales += i.price * i.qty;
+    s.profit += (i.price - (i.cost || 0)) * i.qty;
+  }));
+  const CAT_COLORS = ['#c2571a', '#2b7a4b', '#8a5a9e', '#4e5969', '#b42318', '#b08a2a'];
+  const catStats = db.cats.map((c, ci) => ({
+    id: c.id, name: c.name, color: CAT_COLORS[ci % CAT_COLORS.length],
+    qty: catStat[c.id]?.qty || 0,
+    sales: catStat[c.id]?.sales || 0,
+    profit: catStat[c.id]?.profit || 0,
+  }));
+
   const Chips = () => (
     <div className="chips">
       {RANGES.map((r) => (
@@ -122,7 +140,7 @@ export default function History({ db }) {
 
   return (
     <>
-      <div className="nav">统计</div>
+      <div className="nav"><button className="back" onClick={() => nav('#/tables')}>← 前台</button>统计</div>
       <div className="page">
         {/* 时间是第一分类：选了段，下面全部跟它走 */}
         <div className="chips"><Chips /></div>
@@ -148,6 +166,25 @@ export default function History({ db }) {
             <span className="sub" style={{ marginLeft: 'auto' }}>按{gran} · <span style={{ color: 'var(--brand)' }}>━</span> 营业额 <span style={{ color: 'var(--ok)' }}>┄</span> 毛利</span>
           </div>
           <Trend series={series} />
+        </div>
+
+        <div className="card">
+          <b>{def.label} · 品类销量与净利润</b>
+          <div style={{ marginTop: 6 }}>
+            {catStats.map((c) => (
+              <div className="row" key={c.id}>
+                <div className="grow" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className="catdot" style={{ background: c.color }} />
+                  <b style={{ fontSize: 15 }}>{c.name}</b>
+                </div>
+                <span className="sub">销量 {c.qty} · 营收 ¥{r1(c.sales)}</span>
+                <b style={{ color: c.profit >= 0 ? 'var(--ok)' : 'var(--danger)', minWidth: 72, textAlign: 'right' }}>
+                  {c.profit >= 0 ? '净利' : '亏'} ¥{r1(Math.abs(c.profit))}
+                </b>
+              </div>
+            ))}
+            {!catStats.some((c) => c.qty > 0) && <div className="sub" style={{ padding: 6 }}>这段时间还没有清台的订单。</div>}
+          </div>
         </div>
 
         <div className="card">

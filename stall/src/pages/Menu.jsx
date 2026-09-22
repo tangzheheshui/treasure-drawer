@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { uid, hasSpecs } from '../store.js';
 
-export default function MenuPage({ db, update }) {
+export default function MenuPage({ db, update, nav }) {
   const [editing, setEditing] = useState(false);  // 默认浏览态，点「编辑」才进管理
   const [edit, setEdit] = useState(null);         // { id?, catId, name, price, soldOut, specs }
   const [newCat, setNewCat] = useState(false);
@@ -39,6 +39,7 @@ export default function MenuPage({ db, update }) {
   return (
     <>
       <div className="nav">
+        <button className="back" onClick={() => nav('#/tables')}>← 前台</button>
         菜品
         <button className="act" style={editing ? { background: '#2b7a4b' } : undefined}
                 onClick={() => setEditing(!editing)}>{editing ? '✓ 完成' : '编辑'}</button>

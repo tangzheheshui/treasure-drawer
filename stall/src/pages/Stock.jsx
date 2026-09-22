@@ -4,13 +4,14 @@ import { addMat, removeMat, stockIn, stockUse, stockCount, lowMats, stockValue }
 const r1 = (n) => Math.round(n * 100) / 100;
 const DAY = 86400000;
 
-// 库存：页面本体只做展示（现状/明细/按天图表）；所有变更收进右上「＋ 记录」一个入口
-export default function Stock({ db, update }) {
+// 库存：页面本体只做展示（现状/明细/按天图表）；所有变更收进右上「＋ 记一笔」一个入口
+export default function Stock({ db, update, nav }) {
   const [entry, setEntry] = useState(false);
   const [tab, setTab] = useState('in'); // in | out | count | mat
   const [f, setF] = useState({ day: 0 });
   const [confirmDel, setConfirmDel] = useState(null);
   const [openDay, setOpenDay] = useState(null);
+  const [newMat, setNewMat] = useState(false); // 原料列表里的新建表单开关
   const low = lowMats(db);
   const value = stockValue(db);
   const matOf = () => db.mats.find((m) => m.id === f.matId);
@@ -31,8 +32,10 @@ export default function Stock({ db, update }) {
   };
   const saveMat = () => {
     if (!(f.name || '').trim()) return;
-    update((d) => addMat(d, { name: f.name, unit: f.unit, cat: f.cat, safe: f.safe, stock: f.stock, price: f.price }));
-    setF({ day: 0 });
+    let id;
+    update((d) => { id = addMat(d, { name: f.name, unit: f.unit, cat: f.cat, safe: f.safe, stock: f.stock, price: f.price }).id; });
+    setF({ day: 0, matId: id });
+    setNewMat(false);
   };
 
   // ── 展示数据 ──
@@ -45,19 +48,44 @@ export default function Stock({ db, update }) {
   const dayUse = days.map(([k, list]) => ({ k, label: dayLabel(Number(k)), use: r1(list.filter((m) => m.type === 'use').reduce((s, m) => s + m.qty, 0)) }));
   const maxUse = Math.max(...dayUse.map((d) => d.use), 1);
 
-  const MatSelect = () => (
+  const MatList = () => (
     <>
-      <div className="label">原料</div>
-      <select className="f" value={f.matId || ''} onChange={(e) => setF({ ...f, matId: e.target.value })}>
-        <option value="" disabled>选原料</option>
-        {db.mats.map((m) => <option key={m.id} value={m.id}>{m.name}（剩 {r1(m.stock)}{m.unit}）</option>)}
-      </select>
+      <div className="label">选原料（点一下选中）</div>
+      <div className="matlist">
+        {db.mats.map((m) => (
+          <div key={m.id} className={`matitem ${f.matId === m.id ? 'on' : ''}`} onClick={() => setF({ ...f, matId: m.id })}>
+            <div className="grow">
+              <div className="name" style={{ fontSize: 15 }}>{m.name}</div>
+              <div className="sub">剩 {r1(m.stock)}{m.unit}{m.lastPrice ? ` · 进价 ¥${m.lastPrice}` : ''}</div>
+            </div>
+            {f.matId === m.id && <b style={{ color: 'var(--ok)' }}>✓</b>}
+            <button className="sqbtn del" onClick={(e) => { e.stopPropagation(); setConfirmDel(m); }}>✕</button>
+          </div>
+        ))}
+        {!db.mats.length && <div className="sub" style={{ padding: 12 }}>还没有原料，点下面「＋ 新建」建档。</div>}
+        <div className="matadd" onClick={() => setNewMat(!newMat)}>{newMat ? '收起' : '＋ 新建原料'}</div>
+      </div>
+      {newMat && (
+        <div style={{ marginTop: 10, border: '1px solid var(--line)', borderRadius: 10, padding: 10 }}>
+          <input className="f" placeholder="名称，如：羊肉片" value={f.name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} />
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <input className="f" placeholder="单位（斤/瓶…）" value={f.unit || ''} onChange={(e) => setF({ ...f, unit: e.target.value })} />
+            <input className="f" placeholder="分类" value={f.cat || ''} onChange={(e) => setF({ ...f, cat: e.target.value })} />
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <input className="f" type="number" placeholder="安全线" value={f.safe ?? ''} onChange={(e) => setF({ ...f, safe: e.target.value })} />
+            <input className="f" type="number" placeholder="初始库存" value={f.stock ?? ''} onChange={(e) => setF({ ...f, stock: e.target.value })} />
+            <input className="f" type="number" placeholder="进价" value={f.price ?? ''} onChange={(e) => setF({ ...f, price: e.target.value })} />
+          </div>
+          <button className="btn ok block" style={{ marginTop: 10 }} disabled={!(f.name || '').trim()} onClick={saveMat}>建档</button>
+        </div>
+      )}
     </>
   );
 
   return (
     <>
-      <div className="nav">库存<button className="act" onClick={() => openEntry('in')}>＋ 记录</button></div>
+      <div className="nav"><button className="back" onClick={() => nav('#/tables')}>← 前台</button>库存<button className="act" onClick={() => openEntry('in')}>＋ 记一笔</button></div>
       <div className="page">
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -72,7 +100,7 @@ export default function Stock({ db, update }) {
               </div>
             )}
           </div>
-          {low.length > 0 && <div className="sub" style={{ marginTop: 6, color: 'var(--danger)' }}>🔔 有原料低于安全线，点右上「＋ 记录」入库</div>}
+          {low.length > 0 && <div className="sub" style={{ marginTop: 6, color: 'var(--danger)' }}>🔔 有原料低于安全线，点右上「＋ 记一笔」入库</div>}
         </div>
 
         <div className="card">
@@ -93,7 +121,7 @@ export default function Stock({ db, update }) {
                 </div>
               );
             })}
-            {!db.mats.length && <div className="sub" style={{ padding: 12 }}>还没有原料，点右上「＋ 记录」新建。</div>}
+            {!db.mats.length && <div className="sub" style={{ padding: 12 }}>还没有原料，点右上「＋ 记一笔」新建。</div>}
           </div>
         </div>
 
@@ -167,14 +195,14 @@ export default function Stock({ db, update }) {
         <div className="mask" onClick={() => setEntry(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-              {[['in', '入库'], ['out', '出库'], ['count', '盘点'], ['mat', '原料']].map(([k, label]) => (
+              {[['in', '入库'], ['out', '出库'], ['count', '盘点']].map(([k, label]) => (
                 <button key={k} className={`mini ${tab === k ? 'ok' : ''}`} style={{ flex: 1, padding: '9px 0' }} onClick={() => setTab(k)}>{label}</button>
               ))}
             </div>
 
             {tab === 'in' && (
               <>
-                <MatSelect />
+                <MatList />
                 <div className="label">入库数量</div>
                 <input className="f" type="number" inputMode="decimal" value={f.qty ?? ''} onChange={(e) => setF({ ...f, qty: e.target.value })} />
                 <div className="label">单价（元，选填）</div>
@@ -183,7 +211,7 @@ export default function Stock({ db, update }) {
             )}
             {tab === 'out' && (
               <>
-                <MatSelect />
+                <MatList />
                 <div className="label">用了多少</div>
                 <input className="f" type="number" inputMode="decimal" value={f.qty ?? ''} onChange={(e) => setF({ ...f, qty: e.target.value })} />
                 <div className="label">记在哪一天（一天可记多次）</div>
@@ -198,43 +226,16 @@ export default function Stock({ db, update }) {
             )}
             {tab === 'count' && (
               <>
-                <MatSelect />
+                <MatList />
                 <div className="label">实际还剩多少</div>
                 <input className="f" type="number" inputMode="decimal" value={f.qty ?? ''} onChange={(e) => setF({ ...f, qty: e.target.value })} />
                 <div className="sub" style={{ marginTop: 8 }}>填实际剩余即可，用量和差异系统自动倒推记录。</div>
               </>
             )}
-            {tab === 'mat' && (
-              <>
-                <div className="label">新原料</div>
-                <input className="f" placeholder="名称，如：羊肉片" value={f.name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} />
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <input className="f" placeholder="单位（斤/瓶…）" value={f.unit || ''} onChange={(e) => setF({ ...f, unit: e.target.value })} />
-                  <input className="f" placeholder="分类" value={f.cat || ''} onChange={(e) => setF({ ...f, cat: e.target.value })} />
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <input className="f" type="number" placeholder="安全线" value={f.safe ?? ''} onChange={(e) => setF({ ...f, safe: e.target.value })} />
-                  <input className="f" type="number" placeholder="初始库存" value={f.stock ?? ''} onChange={(e) => setF({ ...f, stock: e.target.value })} />
-                  <input className="f" type="number" placeholder="进价" value={f.price ?? ''} onChange={(e) => setF({ ...f, price: e.target.value })} />
-                </div>
-                <button className="btn ok block" style={{ marginTop: 10 }} disabled={!(f.name || '').trim()} onClick={saveMat}>＋ 建档</button>
-                <div className="label" style={{ marginTop: 14 }}>已有原料（点删除移除）</div>
-                {db.mats.map((m) => (
-                  <div className="row" key={m.id}>
-                    <div className="grow name" style={{ fontSize: 14 }}>{m.name}</div>
-                    <span className="sub">剩 {r1(m.stock)}{m.unit}</span>
-                    <button className="sqbtn del" onClick={() => setConfirmDel(m)}>✕</button>
-                  </div>
-                ))}
-              </>
-            )}
-
-            {tab !== 'mat' && (
-              <div className="mfoot">
-                <button className="btn" onClick={() => setEntry(false)}>取消</button>
-                <button className="btn primary" onClick={save}>保存</button>
-              </div>
-            )}
+            <div className="mfoot">
+              <button className="btn" onClick={() => setEntry(false)}>取消</button>
+              <button className="btn primary" onClick={save}>保存</button>
+            </div>
           </div>
         </div>
       )}

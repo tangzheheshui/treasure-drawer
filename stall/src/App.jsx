@@ -54,9 +54,9 @@ export default function App() {
   else if (page === 'table' && param) body = <Detail db={db} tableNo={+param} update={update} nav={nav} />;
   else if (page === 'receipt' && param) body = <Receipt db={db} orderId={param} nav={nav} />;
   else if (page === 'qr') body = <Qr db={db} nav={nav} />;
-  else if (page === 'menu') body = <MenuPage db={db} update={update} />;
-  else if (page === 'stock') body = <Stock db={db} update={update} />;
-  else if (page === 'history') body = <History db={db} />;
+  else if (page === 'menu') body = <MenuPage db={db} update={update} nav={nav} />;
+  else if (page === 'stock') body = <Stock db={db} update={update} nav={nav} />;
+  else if (page === 'history') body = <History db={db} nav={nav} />;
   else if (page === 'settings') body = <Settings db={db} update={update} nav={nav} />;
   else body = <Tables db={db} update={update} nav={nav} onAdmin={() => nav('#/menu')} />;
 
@@ -65,7 +65,6 @@ export default function App() {
       {body}
       {admin && (
         <div className="adminbar">
-          <button className="back" onClick={() => nav('#/tables')}>● 工作台</button>
           {[['menu', '菜品'], ['stock', '库存'], ['history', '统计'], ['settings', '设置']].map(([k, label]) => (
             <button key={k} className={page === k ? 'on' : ''} onClick={() => nav(`#/${k}`)}>{label}</button>
           ))}

@@ -7,7 +7,6 @@ const DEFAULT_BASE = 'https://auth.tangzheheshui.cn';
 
 export default function Settings({ db, update, nav }) {
   const [name, setName] = useState(db.shop.name);
-  const [askReset, setAskReset] = useState(false);
   const [email, setEmail] = useState(db.shop.pbEmail || '');
   const [pass, setPass] = useState('');
   const [busy, setBusy] = useState(false);
@@ -38,7 +37,7 @@ export default function Settings({ db, update, nav }) {
 
   return (
     <>
-      <div className="nav">设置</div>
+      <div className="nav"><button className="back" onClick={() => nav('#/tables')}>← 前台</button>设置</div>
       <div className="page">
         <div className="card">
           <div className="label" style={{ marginTop: 0 }}>店铺名称</div>
@@ -81,16 +80,6 @@ export default function Settings({ db, update, nav }) {
           <button className="btn block" style={{ marginTop: 10 }}
                   onClick={() => say('1号桌，羊肉串5份，啤酒2份')}>▶ 试听播报</button>
           <div className="sub" style={{ marginTop: 8 }}>嘈杂环境记得同时开手机媒体音量；呼叫会附带震动和卡片闪烁。</div>
-        </div>
-
-        <div className="card">
-          <b>语音识别（点菜）</b>
-          <div className="sub" style={{ margin: '4px 0 8px' }}>
-            识别引擎由服务器统一提供，摊主无需任何配置。联机后点单页 🎤 自动走服务器识别（安卓/微信/App 都能用）；未联机时回退浏览器内置识别（iPhone 可用）。
-          </div>
-          <div className="sub">
-            {online ? '✅ 已联机，语音识别可用（走服务器）' : '未联机：仅 iPhone 可语音点菜，联机后全平台可用'}
-          </div>
         </div>
 
         <div className="card">
@@ -137,31 +126,8 @@ export default function Settings({ db, update, nav }) {
           {msg && <div className="sub" style={{ marginTop: 8 }}>{msg}</div>}
         </div>
 
-        <div className="card">
-          <b>数据</b>
-          <div className="sub" style={{ margin: '4px 0 10px' }}>订单数据优先存本机（IndexedDB），联机后菜单与进单走云端中转。</div>
-          <button className="btn danger block" onClick={() => setAskReset(true)}>清空并重置演示数据</button>
-        </div>
-
         <div className="sub" style={{ textAlign: 'center' }}>摊主点单助手 V0.2 · 只记单不碰支付</div>
       </div>
-
-      {askReset && (
-        <div className="mask" onClick={() => setAskReset(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>清空全部订单和数据？</h3>
-            <div className="sub">将恢复到初始演示数据，不可撤销。</div>
-            <div className="mfoot">
-              <button className="btn" onClick={() => setAskReset(false)}>取消</button>
-              <button className="btn danger" onClick={async () => {
-                const { set: idbSet } = await import('idb-keyval');
-                await idbSet('stall-db-v1', undefined);
-                location.reload();
-              }}>确认清空</button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

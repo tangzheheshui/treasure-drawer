@@ -160,6 +160,22 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; 
 .chip.sm { padding: 4px 12px; font-size: 13px; }
 .specbox { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-top: 4px; }
 
+/* 工作台语音按钮（底部居中大按钮） */
+.voice-btn { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  width: 96px; height: 96px; border-radius: 50%; border: 0; background: var(--brand); color: #fff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  font-size: 14px; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,.32); cursor: pointer; z-index: 40;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none; }
+.voice-btn:active { transform: translateX(-50%) scale(.92); }
+.tcard.pick { cursor: pointer; padding: 10px 6px; text-align: center; }
+
+/* 库存原料展开列表 */
+.matlist { max-height: 240px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; }
+.matitem { display: flex; align-items: center; gap: 8px; padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--line); }
+.matitem:last-child { border-bottom: 0; }
+.matitem.on { background: #e2f2e8; }
+.matadd { padding: 10px 12px; cursor: pointer; color: var(--brand); font-weight: 600; font-size: 14px; text-align: center; }
+
 /* 语音点菜 */
 .micbtn { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line); background: #fff;
           font-size: 22px; cursor: pointer; flex: none; }

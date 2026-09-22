@@ -1,10 +1,13 @@
-import React from 'react';
-import { tableState, orderTotal, paidTotal, dueTotal, dueText, unservedCount, hasCall, walkOrders } from '../store.js';
+import React, { useRef, useState } from 'react';
+import { tableState, orderTotal, paidTotal, dueTotal, dueText, unservedCount, hasCall, walkOrders, submitOrder, sayItemsText, specSelText, unitPriceOf } from '../store.js';
 import { answerRemote } from '../sync.js';
+import { asrAvailable, asrListen } from '../asr.js';
+import { parseOrderTranscript } from '../parseOrder.js';
+import { say } from '../voice.js';
 
 const ST_NAME = { idle: '空闲', dining: '用餐中', pending: '待清台' };
 
-// 经营层工作台：桌子 + 流动订单 两大部分（经营方式决定显示哪几块）
+// 经营层工作台：桌子 + 流动订单 + 底部居中「按住说话」语音入口
 export default function Tables({ db, update, nav, onAdmin }) {
   const shopMode = db.shop.mode || 'mix'; // table | walk | mix
   const nos = Array.from({ length: db.shop.tableCount }, (_, i) => i + 1);
@@ -12,9 +15,67 @@ export default function Tables({ db, update, nav, onAdmin }) {
   const showTables = shopMode !== 'walk';
   const showWalk = shopMode !== 'table';
 
+  // ── 语音点菜：按住说 → 松手识别 → 预览改单 → 选桌 ──
+  const [listening, setListening] = useState(false);
+  const [vol, setVol] = useState(0);
+  const [preview, setPreview] = useState(null);   // { text, items:[{dishId,name,qty,fuzzy,sel}], leftover }
+  const [pickTable, setPickTable] = useState(null); // 预览确认后待选桌的 items
+  const recRef = useRef(null);
+
+  const startVoice = () => {
+    if (!db.shop.pbId) {
+      alert('请先到「设置 → 联机」登录，登录后即可语音点菜');
+      return;
+    }
+    setVol(0);
+    setListening(true);
+    recRef.current = asrListen({
+      onVolume: setVol,
+      onEnd: (text) => {
+        setListening(false);
+        if (text) setPreview(parseOrderTranscript(text, db.dishes));
+        else alert('没听到声音：请确认麦克风权限已允许、麦克风没静音，再按住说一遍');
+      },
+      onError: (code, msg) => {
+        setListening(false);
+        if (code === 'not-allowed' || code === 'service-not-allowed') alert('麦克风没权限，请在浏览器设置里允许后重试');
+        else if (code !== 'unsupported') alert(msg || '识别失败，请重试或直接手点');
+      },
+    }, db.shop);
+  };
+  const stopVoice = () => { recRef.current?.(); };
+
+  const editRow = (i, patch) => setPreview((p) => ({ ...p, items: p.items.map((r, k) => (k === i ? { ...r, ...patch } : r)) }));
+  const dropRow = (i) => setPreview((p) => ({ ...p, items: p.items.filter((_, k) => k !== i) }));
+
+  // 预览确认 → 进入选桌
+  const confirmPreview = () => {
+    setPickTable(preview.items.map((r) => ({ dishId: r.dishId, qty: r.qty, sel: r.sel, note: r.note || '' })));
+    setPreview(null);
+  };
+
+  const buildItems = () => pickTable.map((r) => {
+    const d = db.dishes.find((x) => x.id === r.dishId);
+    return { name: d.name, price: unitPriceOf(d, r.sel), qty: r.qty, note: r.note || '', spec: specSelText(d, r.sel), unit: d.unit || '份' };
+  });
+
+  const submitTo = (tableNo) => {
+    const items = buildItems();
+    update((d) => { submitOrder(d, tableNo, items, false); });
+    say(sayItemsText(tableNo, items, ''));
+    setPickTable(null);
+    nav(`#/table/${tableNo}`);
+  };
+  const submitWalk = () => {
+    const items = buildItems();
+    update((d) => { submitOrder(d, { mode: 'walk' }, items, true); });
+    say(`新散单，${items.map((i) => `${i.name}${i.spec || ''}${i.qty}${i.unit || '份'}`).join('，')}`);
+    setPickTable(null);
+  };
+
   return (
     <>
-      <div className="nav">{db.shop.name || '摊主点单'}<button className="act ghost" onClick={onAdmin}>管理</button></div>
+      <div className="nav">{db.shop.name || '摊主点单'}<button className="act ghost" onClick={onAdmin}>后台</button></div>
       <div className="page">
         {db.calls.length > 0 && (
           <div className="card" style={{ borderColor: '#b42318', borderWidth: 1, borderStyle: 'solid' }}>
@@ -93,9 +154,97 @@ export default function Tables({ db, update, nav, onAdmin }) {
             </div>
           </div>
         )}
-
-        {/* ── 模拟顾客（已按要求移除） ── */}
       </div>
+
+      {/* ── 底部居中「按住说话」大按钮 ── */}
+      {asrAvailable(db.shop) && !listening && !preview && !pickTable && (
+        <button className="voice-btn"
+                onPointerDown={startVoice}
+                onPointerUp={stopVoice}
+                onPointerCancel={stopVoice}
+                onContextMenu={(e) => e.preventDefault()}>
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" y1="19" x2="12" y2="23" />
+            <line x1="8" y1="23" x2="16" y2="23" />
+          </svg>
+          <span>按住说话</span>
+        </button>
+      )}
+
+      {/* 按住说话中 */}
+      {listening && (
+        <div className="mask" onClick={stopVoice} onContextMenu={(e) => e.preventDefault()}>
+          <div className="listen">
+            <div className="micbig" style={{ transform: `scale(${1 + Math.min(1, vol * 3) * 0.3})` }}>🎤</div>
+            <div className="volmeter"><span style={{ width: `${Math.min(100, vol * 400)}%` }} /></div>
+            <div className="ltext">正在听…</div>
+            <div className="sub" style={{ color: '#fff' }}>按住说话，松开识别</div>
+          </div>
+        </div>
+      )}
+
+      {/* 单子预览：改到对为止 */}
+      {preview && (
+        <div className="mask" onClick={() => setPreview(null)}>
+          <div className="modal" style={{ width: '92%', maxWidth: 400, maxHeight: '80vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <h3>🎙 听到的单子</h3>
+            <div className="sub" style={{ marginBottom: 4 }}>原话：{preview.text || '（空）'}</div>
+            {preview.items.map((r, i) => {
+              const d = db.dishes.find((x) => x.id === r.dishId);
+              return (
+                <div key={i} style={{ borderBottom: '1px solid var(--line)', padding: '4px 0' }}>
+                  <div className="vrow" style={{ borderBottom: 0 }}>
+                    <div className="grow">
+                      <b>{r.name}</b>
+                      {r.fuzzy && <span className="pill warn" style={{ marginLeft: 6 }}>认成了？</span>}
+                    </div>
+                    <button className="sqbtn" onClick={() => editRow(i, { qty: Math.max(1, r.qty - 1) })}>−</button>
+                    <b>{r.qty}<span style={{ fontSize: 12, fontWeight: 400 }}>{d?.unit || '份'}</span></b>
+                    <button className="sqbtn" onClick={() => editRow(i, { qty: Math.min(999, r.qty + 1) })}>＋</button>
+                    <button className="sqbtn del" onClick={() => dropRow(i)}>✕</button>
+                  </div>
+                  <input className="f" placeholder="备注：不要辣、多放蒜…" value={r.note || ''}
+                         onChange={(e) => editRow(i, { note: e.target.value })} style={{ marginTop: 4 }} />
+                </div>
+              );
+            })}
+            {!preview.items.length && <div className="sub" style={{ padding: '8px 0' }}>没听出菜名，再说一遍试试？</div>}
+            {preview.leftover && <div className="sub" style={{ color: 'var(--warn)' }}>没对上号：「{preview.leftover}」（对不上就手动加）</div>}
+            <div className="mfoot">
+              <button className="btn" onClick={() => { setPreview(null); startVoice(); }}>再说一遍</button>
+              <button className="btn primary" disabled={!preview.items.length} onClick={confirmPreview}>确认，选桌</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 选桌：识别出的单子给哪桌 */}
+      {pickTable && (
+        <div className="mask" onClick={() => setPickTable(null)}>
+          <div className="modal" style={{ width: '92%', maxWidth: 400, maxHeight: '80vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <h3>这单给哪桌？</h3>
+            {showTables && (
+              <div className="grid" style={{ marginTop: 10, gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                {nos.map((no) => {
+                  const { state } = tableState(db, no);
+                  return (
+                    <button key={no} className={`tcard pick ${state}`} onClick={() => submitTo(no)}>
+                      <span className="no">{no}号</span>
+                      <span className="st">{ST_NAME[state]}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {showWalk && (
+              <button className="btn primary block" style={{ marginTop: 12 }} onClick={submitWalk}>＋ 散客新单</button>
+            )}
+            <button className="btn block" style={{ marginTop: 8 }} onClick={() => setPickTable(null)}>取消</button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

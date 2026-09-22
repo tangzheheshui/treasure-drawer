@@ -115,9 +115,9 @@ try {
   await page.waitForSelector('.tcard.idle', { timeout: 5000 });
   ok('清台后桌号回到「空闲」', true);
 
-  await page.locator('.nav .act.ghost').click();               // 经营层 → 管理
+  await page.locator('.nav .act.ghost').click();               // 经营层 → 后台
   await page.waitForSelector('.adminbar', { timeout: 5000 });
-  ok('管理模式底栏出现（工作台）', (await page.textContent('.adminbar .back')).includes('工作台'));
+  ok('后台底栏出现（4 个分区）', (await page.locator('.adminbar button').count()) >= 4);
   ok('经营态没有底部页签', (await page.locator('.tabbar').count()) === 0);
   await page.locator('.adminbar button', { hasText: '统计' }).click();
   await page.waitForFunction(() => document.body.textContent.includes('订单数1'), { timeout: 5000 });
@@ -128,9 +128,9 @@ try {
   await page.locator('.adminbar button', { hasText: '库存' }).click();
   await page.waitForFunction(() => document.body.textContent.includes('库存价值'), { timeout: 5000 });
   ok('库存页出现（原料/价值/流水）', (await page.locator('.mrow, .row').count()) >= 1);
-  await page.locator('.adminbar .back').click();               // 开始点菜 → 回桌台
+  await page.locator('.nav .back').click();               // ← 前台 → 回桌台
   await page.waitForSelector('.tcard', { timeout: 5000 });
-  ok('「开始点菜」一键返回桌台', true);
+  ok('「← 前台」一键返回桌台', true);
 
   await page.goto(`${url}customer.html`);                     // 顾客页：无二维码参数时的友好提示
   await page.waitForFunction(() => document.body.textContent.includes('二维码'), { timeout: 5000 });
