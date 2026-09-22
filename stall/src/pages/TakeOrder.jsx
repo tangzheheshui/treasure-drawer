@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { submitOrder, sayItemsText, dishSpecs, specSelText, unitPriceOf, hasSpecs } from '../store.js';
 import { parseOrderTranscript } from '../parseOrder.js';
-import { asrAvailable, asrListen } from '../asr.js';
+import { asrAvailable, asrLive, asrListen } from '../asr.js';
 import { say } from '../voice.js';
 
 export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
@@ -49,7 +49,7 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
   });
   const setNote = (key, note) => setCart((c) => ({ ...c, [key]: { ...c[key], note } }));
 
-  // ── 语音点菜：引擎走 asr.js 适配器（现在=浏览器 ASR，将来 App 换商用接口只动那个文件）──
+  // ── 语音点菜：引擎走 asr.js 适配器（填了百度 key 走百度，否则浏览器内置 ASR）──
   const startVoice = () => {
     setLive('');
     setSwap(-1);
@@ -60,11 +60,12 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
         setListening(false);
         if (text) setPreview(parseOrderTranscript(text, db.dishes)); // 整理成单子预览，改完才入账
       },
-      onError: (code) => {
+      onError: (code, msg) => {
         setListening(false);
         if (code === 'not-allowed' || code === 'service-not-allowed') alert('麦克风没权限，请在浏览器设置里允许后重试');
+        else if (code !== 'unsupported') alert(msg || '识别失败，请重试或直接手点');
       },
-    });
+    }, db.shop);
   };
   const stopVoice = () => { recRef.current?.(); };
 
@@ -158,7 +159,7 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
       </div>
 
       <div className="cartbar">
-        {asrAvailable() && <button className="micbtn" title="说话点菜" onClick={listening ? stopVoice : startVoice}>🎤</button>}
+        {asrAvailable(db.shop) && <button className="micbtn" title="说话点菜" onClick={listening ? stopVoice : startVoice}>🎤</button>}
         <span className="sum">¥{total}</span>
         <span className="sub">{count} 份</span>
         <button className="btn primary" disabled={!lines.length} onClick={submit}>
@@ -197,8 +198,8 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
         <div className="mask" onClick={stopVoice}>
           <div className="listen">
             <div className="micbig">🎤</div>
-            <div className="ltext">{live || '请说话…'}</div>
-            <div className="sub" style={{ color: '#fff' }}>例如「羊肉串二十串中辣可乐两瓶」<br />说完停一下自动整理，点屏幕任意处结束</div>
+            <div className="ltext">{asrLive(db.shop) ? (live || '请说话…') : '正在听…'}</div>
+            <div className="sub" style={{ color: '#fff' }}>例如「羊肉串二十串中辣可乐两瓶」<br />说完停顿自动整理，点屏幕任意处结束</div>
           </div>
         </div>
       )}
