@@ -1,10 +1,8 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { submitOrder, sayItemsText } from '../store.js';
 import { parseOrderTranscript } from '../parseOrder.js';
+import { asrAvailable, asrListen } from '../asr.js';
 import { say } from '../voice.js';
-
-// 语音识别：浏览器内置 ASR（与播报同族的 Web Speech 能力），不支持的环境隐藏麦克风
-const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
 export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
   const [cat, setCat] = useState('all');
@@ -16,8 +14,7 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
   const [live, setLive] = useState('');
   const [preview, setPreview] = useState(null); // { text, items:[{dishId,name,qty,fuzzy}], leftover }
   const [swap, setSwap] = useState(-1);         // 预览里正在换菜的那一行
-  const recRef = useRef(null);
-  const finalRef = useRef('');
+  const recRef = useRef(null);                  // 适配器返回的 stop 函数
 
   const dishes = useMemo(
     () => db.dishes.filter((d) => cat === 'all' || d.catId === cat),
@@ -37,39 +34,24 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
   });
   const setNote = (id, note) => setCart((c) => ({ ...c, [id]: { ...c[id], note } }));
 
-  // ── 语音点菜 ──
+  // ── 语音点菜：引擎走 asr.js 适配器（现在=浏览器 ASR，将来 App 换商用接口只动那个文件）──
   const startVoice = () => {
-    if (!SR) return;
-    const rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    rec.lang = 'zh-CN';
-    rec.interimResults = true; // 边说边上屏
-    rec.maxAlternatives = 1;
-    finalRef.current = '';
-    rec.onresult = (e) => {
-      let fin = '', mid = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) fin += e.results[i][0].transcript;
-        else mid += e.results[i][0].transcript;
-      }
-      if (fin) finalRef.current += fin;
-      setLive(finalRef.current + mid);
-    };
-    rec.onerror = (e) => {
-      setListening(false);
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') alert('麦克风没权限，请在浏览器设置里允许后重试');
-    };
-    rec.onend = () => {
-      setListening(false);
-      const text = finalRef.current.trim();
-      if (text) setPreview(parseOrderTranscript(text, db.dishes)); // 整理成单子预览，改完才入账
-    };
-    recRef.current = rec;
     setLive('');
     setSwap(-1);
     setListening(true);
-    try { rec.start(); } catch { /* 重复 start 忽略 */ }
+    recRef.current = asrListen({
+      onText: setLive,
+      onEnd: (text) => {
+        setListening(false);
+        if (text) setPreview(parseOrderTranscript(text, db.dishes)); // 整理成单子预览，改完才入账
+      },
+      onError: (code) => {
+        setListening(false);
+        if (code === 'not-allowed' || code === 'service-not-allowed') alert('麦克风没权限，请在浏览器设置里允许后重试');
+      },
+    });
   };
-  const stopVoice = () => { try { recRef.current?.stop(); } catch { /* 已停 */ } };
+  const stopVoice = () => { recRef.current?.(); };
 
   // 预览行编辑：数量 / 换菜 / 删行
   const editRow = (i, patch) => setPreview((p) => ({ ...p, items: p.items.map((r, k) => (k === i ? { ...r, ...patch } : r)) }));
@@ -155,7 +137,7 @@ export default function TakeOrder({ db, update, tableNo, walk, add, nav }) {
       </div>
 
       <div className="cartbar">
-        {SR && <button className="micbtn" title="说话点菜" onClick={listening ? stopVoice : startVoice}>🎤</button>}
+        {asrAvailable() && <button className="micbtn" title="说话点菜" onClick={listening ? stopVoice : startVoice}>🎤</button>}
         <span className="sum">¥{total}</span>
         <span className="sub">{count} 份</span>
         <button className="btn primary" disabled={!lines.length} onClick={submit}>
