@@ -112,12 +112,42 @@ export function parseOrderTranscript(raw, dishes) {
     i = e;
   }
 
+  // 3.5) 规格：菜名之后、下一道菜之前的空隙里认规格词（每组最多认一个，如「中辣」「大份」）
+  //      「羊肉串中辣十串」「羊肉串十串中辣」都通——数字先分完，规格只吃剩下的字
+  hits.sort((a, b) => a.s - b.s);
+  hits.forEach((h, idx) => {
+    const gs = (h.dish.specs || []).filter((g) => g && g.name && Array.isArray(g.opts));
+    if (!gs.length) return;
+    const end = idx + 1 < hits.length ? hits[idx + 1].s : n;
+    for (const g of gs) {
+      const opts = g.opts.filter((o) => o && o.n).sort((a, b) => b.n.length - a.n.length); // 长选项优先，防「微辣」吃掉「不微辣」
+      for (let k = h.e; k < end; k++) {
+        if (used[k]) continue;
+        const o = opts.find((o) => text.startsWith(o.n, k) && !used.slice(k, k + o.n.length).some(Boolean));
+        if (o) {
+          for (let m = k; m < k + o.n.length; m++) used[m] = true;
+          h.sel = h.sel || {};
+          h.sel[g.name] = o.n;
+          break;
+        }
+      }
+    }
+  });
+
   // 4) 出单：同一道菜并成一行的数量；相似度存疑的标 fuzzy 让摊主改
   const items = [];
-  hits.sort((a, b) => a.s - b.s).forEach((h) => {
+  hits.forEach((h) => {
     const ex = items.find((x) => x.dishId === h.dish.id);
-    if (ex) { ex.qty += h.qty || 1; ex.fuzzy = ex.fuzzy || h.fuzzy; }
-    else items.push({ dishId: h.dish.id, name: h.dish.name, qty: h.qty || 1, fuzzy: h.fuzzy });
+    if (ex) {
+      ex.qty += h.qty || 1;
+      ex.fuzzy = ex.fuzzy || h.fuzzy;
+      if (h.sel && !ex.sel) ex.sel = h.sel;
+    } else {
+      const sel = h.sel || null;
+      const spec = (h.dish.specs || []).filter((g) => g && g.name && Array.isArray(g.opts))
+        .map((g) => sel?.[g.name]).filter(Boolean).join('/');
+      items.push({ dishId: h.dish.id, name: h.dish.name, qty: h.qty || 1, fuzzy: h.fuzzy, sel, spec: spec || undefined });
+    }
   });
   items.forEach((x) => { x.qty = Math.min(999, Math.max(1, x.qty)); });
   const leftover = [...text].filter((c, k) => !used[k] && !MEASURE.includes(c)).join('').slice(0, 24);

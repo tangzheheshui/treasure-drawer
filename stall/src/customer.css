@@ -54,3 +54,14 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; 
           border: 0; border-radius: 99px; padding: 13px 20px; font-size: 15px; font-weight: 700;
           background: #1f2329; color: #fff; box-shadow: 0 8px 20px rgba(0,0,0,.25); cursor: pointer; }
 .c-call:disabled { opacity: 0.5; }
+
+/* 规格选择弹层 */
+.c-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-end;
+          justify-content: center; z-index: 40; }
+.c-modal { width: 100%; background: #fff; border-radius: 18px 18px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px)); }
+.c-modal-title { font-size: 18px; }
+.c-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.c-chip { border: 1px solid #ddd6c8; background: #fff; border-radius: 99px; padding: 9px 18px;
+          font-size: 15px; cursor: pointer; color: #1f2329; }
+.c-chip.on { background: #1f2329; border-color: #1f2329; color: #fff; font-weight: 600; }
+.c-btn.block { display: block; width: 100%; margin: 0; }

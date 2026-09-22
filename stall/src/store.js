@@ -133,9 +133,18 @@ export function submitOrder(db, target, items, isAdd, guests) {
 }
 
 export function sayItemsText(tableNo, items, prefix) {
-  const body = items.map((i) => `${i.name}${i.qty}份`).join('，');
+  const body = items.map((i) => `${i.name}${i.spec || ''}${i.qty}份`).join('，');
   return `${tableNo}号桌${prefix}，${body}`;
 }
+
+// ── 规格（辣度/份量）──
+// 菜上可挂 0~2 组规格：specs: [{ name:'辣度', opts:[{n:'微辣',d:0},{n:'中辣',d:0}] }]
+// 选项 d = 差价（元）；订单项存 spec 纯文本（'中辣/大份'）+ 菜名保持纯净，统计按菜名聚不受影响
+export const dishSpecs = (d) => (Array.isArray(d?.specs) ? d.specs : []).filter((g) => g && g.name && Array.isArray(g.opts));
+export const specSelText = (d, sel) => dishSpecs(d).map((g) => sel?.[g.name]).filter(Boolean).join('/');
+export const unitPriceOf = (d, sel) =>
+  dishSpecs(d).reduce((s, g) => s + (g.opts.find((o) => o && o.n === sel?.[g.name])?.d || 0), Number(d?.price) || 0);
+export const hasSpecs = (d) => dishSpecs(d).some((g) => g.opts.length);
 
 export function toggleBatchSettled(db, orderId, batchId) {
   const o = db.orders.find((x) => x.id === orderId);

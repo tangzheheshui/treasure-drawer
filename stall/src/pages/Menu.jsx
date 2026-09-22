@@ -1,26 +1,35 @@
 import React, { useState } from 'react';
-import { uid } from '../store.js';
+import { uid, hasSpecs } from '../store.js';
 
 export default function MenuPage({ db, update }) {
   const [editing, setEditing] = useState(false);  // 默认浏览态，点「编辑」才进管理
-  const [edit, setEdit] = useState(null);         // { id?, catId, name, price, soldOut }
+  const [edit, setEdit] = useState(null);         // { id?, catId, name, price, soldOut, specs }
   const [newCat, setNewCat] = useState(false);
   const [catName, setCatName] = useState('');
   const [confirm, setConfirm] = useState(null);   // { text, ok: fn }
 
   const ask = (text, ok) => setConfirm({ text, ok });
 
+  // 规格编辑：specs [{ name, opts:[{n, d}] }]；d 差价输入期是字符串，保存时归一
+  const setSpecs = (fn) => setEdit((e) => { const specs = JSON.parse(JSON.stringify(e.specs || [])); fn(specs); return { ...e, specs }; });
+
   const save = () => {
     const name = (edit.name || '').trim();
     const price = Math.max(0, Math.round(Number(edit.price) * 100) / 100);
     const cost = edit.cost === '' || edit.cost === undefined || edit.cost === null ? 0 : Math.max(0, Number(edit.cost) || 0);
+    const specs = (edit.specs || [])
+      .map((g) => ({
+        name: (g.name || '').trim(),
+        opts: g.opts.map((o) => ({ n: (o.n || '').trim(), d: Math.max(0, Number(o.d) || 0) })).filter((o) => o.n),
+      }))
+      .filter((g) => g.name && g.opts.length);
     if (!name || Number.isNaN(price)) return;
     update((d) => {
       if (edit.id) {
         const it = d.dishes.find((x) => x.id === edit.id);
-        Object.assign(it, { name, price, cost, soldOut: !!edit.soldOut });
+        Object.assign(it, { name, price, cost, soldOut: !!edit.soldOut, specs });
       } else {
-        d.dishes.push({ id: uid(), catId: edit.catId, name, price, cost, soldOut: false });
+        d.dishes.push({ id: uid(), catId: edit.catId, name, price, cost, soldOut: false, specs });
       }
     });
     setEdit(null);
@@ -45,7 +54,7 @@ export default function MenuPage({ db, update }) {
                 <span className="line" />
                 {editing && (
                   <>
-                    <button className="mini ok" onClick={() => setEdit({ id: null, catId: c.id, name: '', price: '' })}>＋ 加菜品</button>
+                    <button className="mini ok" onClick={() => setEdit({ id: null, catId: c.id, name: '', price: '', specs: [] })}>＋ 加菜品</button>
                     <button
                       className="mini"
                       style={{ color: 'var(--danger)' }}
@@ -63,10 +72,11 @@ export default function MenuPage({ db, update }) {
 
               {dishes.map((d) => (
                 <div className="mrow" key={d.id}
-                     onClick={() => { if (editing) setEdit({ ...d }); }}
+                     onClick={() => { if (editing) setEdit({ ...d, specs: (d.specs || []).map((g) => ({ ...g, opts: g.opts.map((o) => ({ ...o })) })) }); }}
                      style={{ cursor: editing ? 'pointer' : 'default', opacity: d.soldOut ? 0.45 : 1 }}>
                   <span className={`mname ${d.soldOut ? 'dead' : ''}`}>
-                    {d.name}{d.soldOut && <span className="pill" style={{ marginLeft: 8 }}>售罄</span>}
+                    {d.name}{hasSpecs(d) && <span className="sub" style={{ marginLeft: 6, fontSize: 12 }}>{d.specs.map((g) => g.name).join('/')}可选</span>}
+                    {d.soldOut && <span className="pill" style={{ marginLeft: 8 }}>售罄</span>}
                   </span>
                   <span className="dots" />
                   <span className="price">¥{d.price}</span>
@@ -129,7 +139,7 @@ export default function MenuPage({ db, update }) {
 
       {edit && (
         <div className="mask" onClick={() => setEdit(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={{ maxHeight: '86vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <h3>{edit.id ? '编辑菜品' : '加菜品'}</h3>
             <div className="label">名称</div>
             <input className="f" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
@@ -137,6 +147,36 @@ export default function MenuPage({ db, update }) {
             <input className="f" type="number" inputMode="decimal" value={edit.price} onChange={(e) => setEdit({ ...edit, price: e.target.value })} />
             <div className="label">成本价（元，选填，用于毛利统计）</div>
             <input className="f" type="number" inputMode="decimal" value={edit.cost ?? ''} onChange={(e) => setEdit({ ...edit, cost: e.target.value })} placeholder="不填则不计成本" />
+
+            <div className="label">规格（选填，最多两组，如辣度/份量；选项可带差价）</div>
+            {(edit.specs || []).map((g, gi) => (
+              <div className="specbox" key={gi}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input className="f" style={{ width: 120, padding: '6px 10px' }} value={g.name} placeholder="组名：如 辣度"
+                         onChange={(e) => setSpecs((s) => { s[gi].name = e.target.value; })} />
+                  <button className="sqbtn del" style={{ width: 30, height: 30, marginLeft: 'auto' }}
+                          onClick={() => setSpecs((s) => s.filter((_, i) => i !== gi))}>✕</button>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, alignItems: 'center' }}>
+                  {g.opts.map((o, oi) => (
+                    <span key={oi} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, border: '1px solid var(--line)', borderRadius: 99, padding: '3px 4px 3px 10px' }}>
+                      <input style={{ width: 58, border: 0, fontSize: 13, outline: 'none' }} value={o.n} placeholder="选项"
+                             onChange={(e) => setSpecs((s) => { s[gi].opts[oi].n = e.target.value; })} />
+                      <input style={{ width: 40, border: 0, fontSize: 12, color: 'var(--sub)', outline: 'none' }} type="number" inputMode="decimal" title="差价（元）" value={o.d}
+                             onChange={(e) => setSpecs((s) => { s[gi].opts[oi].d = e.target.value; })} />
+                      <button className="mini" style={{ padding: '2px 7px' }}
+                              onClick={() => setSpecs((s) => { s[gi].opts.splice(oi, 1); })}>✕</button>
+                    </span>
+                  ))}
+                  <button className="mini" onClick={() => setSpecs((s) => { s[gi].opts.push({ n: '', d: '' }); })}>＋选项</button>
+                </div>
+              </div>
+            ))}
+            {(edit.specs || []).length < 2 && (
+              <button className="mini" style={{ marginTop: 8 }}
+                      onClick={() => setSpecs((s) => { s.push({ name: '', opts: [{ n: '', d: '' }] }); })}>＋ 加规格组</button>
+            )}
+
             <div className="sub" style={{ marginTop: 8 }}>售罄/上架用列表里的一键开关更快，不用进这里。</div>
             <div className="mfoot">
               {edit.id && <button className="btn danger" onClick={() => ask(`删除「${edit.name}」？已下的单不受影响。`, () => { update((d) => { d.dishes = d.dishes.filter((x) => x.id !== edit.id); }); setEdit(null); })}>删除</button>}

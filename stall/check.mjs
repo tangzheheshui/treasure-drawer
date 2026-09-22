@@ -9,9 +9,9 @@ import { parseOrderTranscript } from './src/parseOrder.js';
 const out = [];
 const ok = (name, cond) => out.push([name, !!cond]);
 const MENU = [
-  { id: 'yrc', name: '羊肉串', price: 6, soldOut: false },
+  { id: 'yrc', name: '羊肉串', price: 6, soldOut: false, specs: [{ name: '辣度', opts: [{ n: '微辣', d: 0 }, { n: '中辣', d: 0 }, { n: '特辣', d: 0 }] }] },
   { id: 'nrc', name: '牛肉串', price: 6, soldOut: false },
-  { id: 'kmj', name: '烤面筋', price: 3, soldOut: false },
+  { id: 'kmj', name: '烤面筋', price: 3, soldOut: false, specs: [{ name: '份量', opts: [{ n: '大份', d: 4 }] }] },
   { id: 'pj', name: '啤酒', price: 10, soldOut: false },
   { id: 'kl', name: '可乐', price: 3, soldOut: false },
   { id: 'kys', name: '矿泉水', price: 2, soldOut: false },
@@ -38,6 +38,14 @@ const pick = (r, name) => r.items.find((i) => i.name === name);
   ok('解析：全没对上时出空单子', r.items.length === 0 && r.leftover.length > 0);
   r = P('二十三串羊肉串两瓶啤酒');
   ok('解析：二十三=23、啤酒两瓶', pick(r, '羊肉串')?.qty === 23 && pick(r, '啤酒')?.qty === 2);
+  r = P('羊肉串二十串中辣可乐两瓶');
+  ok('解析：规格中辣跟在菜名后（羊肉串/中辣）', pick(r, '羊肉串')?.qty === 20 && pick(r, '羊肉串')?.spec === '中辣' && pick(r, '可乐')?.qty === 2);
+  r = P('羊肉串中辣十串');
+  ok('解析：规格在数量前（羊肉串/中辣/10）', pick(r, '羊肉串')?.qty === 10 && pick(r, '羊肉串')?.spec === '中辣');
+  r = P('烤面筋大份五串');
+  ok('解析：份量规格（大份）', pick(r, '烤面筋')?.qty === 5 && pick(r, '烤面筋')?.spec === '大份');
+  r = P('羊肉串微辣牛肉串特辣');
+  ok('解析：两菜各带各自规格（微辣/特辣不串）', pick(r, '羊肉串')?.spec === '微辣' && pick(r, '牛肉串')?.spec === undefined);
 }
 
 const url = 'http://localhost:5198/';

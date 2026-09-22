@@ -104,7 +104,7 @@ export default function Detail({ db, update, orderId, tableNo, nav }) {
                     <div className="row" key={i.id}>
                       <div className="grow" onClick={() => tapServe(i)} style={{ cursor: 'pointer' }}>
                         <div className={`name ${i.served ? 'dead' : ''}`}>
-                          {i.name} <span className="sub">×{i.qty}</span>
+                          {i.name}{i.spec && <span className="sub" style={{ fontWeight: 400 }}> · {i.spec}</span>} <span className="sub">×{i.qty}</span>
                           {i.served ? <span className="pill served" style={{ marginLeft: 8 }}>已出餐</span>
                                     : <span className="pill unserved" style={{ marginLeft: 8 }}>未出</span>}
                         </div>

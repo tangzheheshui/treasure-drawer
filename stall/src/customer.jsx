@@ -15,14 +15,21 @@ const SESS = 'stall-cust-session';
 const CS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const genCode = () => Array.from({ length: 4 }, () => CS[Math.floor(Math.random() * CS.length)]).join('');
 
+// 规格（辣度/份量）：与摊主端 store.js 同一套口径的本地复制（顾客页独立入口，不引摊主状态库）
+const specsOf = (d) => (Array.isArray(d?.specs) ? d.specs : []).filter((g) => g && g.name && Array.isArray(g.opts));
+const hasSpecs = (d) => specsOf(d).some((g) => g.opts.length);
+const selText = (d, sel) => specsOf(d).map((g) => sel?.[g.name]).filter(Boolean).join('/');
+const unitPrice = (d, sel) => specsOf(d).reduce((s, g) => s + (g.opts.find((o) => o && o.n === sel?.[g.name])?.d || 0), Number(d?.price) || 0);
+
 const App = () => {
   const [shop, setShop] = useState(null);
   const [err, setErr] = useState('');
   const [cat, setCat] = useState('all');
-  const [cart, setCart] = useState({});
+  const [cart, setCart] = useState({}); // `${dishId}|${spec}` -> { dishId, name, price(含差价), qty, spec, sel }
   const [view, setView] = useState('menu'); // menu | sent
   const [mine, setMine] = useState(() => JSON.parse(sessionStorage.getItem(SESS) || '[]'));
   const [calling, setCalling] = useState(false);
+  const [pick, setPick] = useState(null); // 带规格的菜：{ dish, sel }
 
   useEffect(() => {
     if (!shopId || !table) { setErr('请扫桌边的二维码进入点单'); return; }
@@ -47,16 +54,28 @@ const App = () => {
   const count = lines.reduce((s, [, i]) => s + i.qty, 0);
   const catName = (id) => (shop.cats || []).find((c) => c.id === id)?.name || '';
 
-  const addDish = (d) => setCart((c) => ({ ...c, [d.id]: { name: d.name, price: d.price, qty: (c[d.id]?.qty || 0) + 1 } }));
-  const dec = (id) => setCart((c) => {
-    const it = c[id];
-    if (!it) return c;
-    if (it.qty <= 1) { const { [id]: _, ...rest } = c; return rest; }
-    return { ...c, [id]: { ...it, qty: it.qty - 1 } };
+  const addLine = (d, sel) => setCart((c) => {
+    const spec = selText(d, sel);
+    const key = `${d.id}|${spec}`;
+    return { ...c, [key]: { dishId: d.id, name: d.name, price: unitPrice(d, sel), qty: (c[key]?.qty || 0) + 1, spec, sel: sel || undefined } };
   });
+  const tapDish = (d) => {
+    if (d.soldOut) return;
+    if (hasSpecs(d)) {
+      const sel = Object.fromEntries(specsOf(d).map((g) => [g.name, g.opts[0]?.n]).filter(([, v]) => v));
+      setPick({ dish: d, sel });
+    } else addLine(d, null);
+  };
+  const dec = (key) => setCart((c) => {
+    const it = c[key];
+    if (!it) return c;
+    if (it.qty <= 1) { const { [key]: _, ...rest } = c; return rest; }
+    return { ...c, [key]: { ...it, qty: it.qty - 1 } };
+  });
+  const inc = (key) => setCart((c) => ({ ...c, [key]: { ...c[key], qty: c[key].qty + 1 } }));
 
   const submit = async () => {
-    const items = lines.map(([, i]) => ({ name: i.name, price: i.price, qty: i.qty, note: '' }));
+    const items = lines.map(([, i]) => ({ name: i.name, price: i.price, qty: i.qty, note: '', spec: i.spec || '' }));
     if (!items.length) return;
     const pb = new PocketBase(base);
     let code = genCode();
@@ -114,7 +133,7 @@ const App = () => {
               return (
                 <div key={k} style={{ borderBottom: '1px solid #eee9dd', paddingBottom: 6, marginBottom: 6 }}>
                   <div className="c-line">
-                    <span>{m.code ? `单号 ${m.code} · ` : ''}{m.items.map((i) => `${i.name}×${i.qty}`).join('，')}</span>
+                    <span>{m.code ? `单号 ${m.code} · ` : ''}{m.items.map((i) => `${i.name}${i.spec ? `(${i.spec})` : ''}×${i.qty}`).join('，')}</span>
                     <b>¥{m.total}</b>
                   </div>
                   {!table && rem !== undefined && (
@@ -143,19 +162,42 @@ const App = () => {
               <div className="c-row" key={d.id} style={{ opacity: d.soldOut ? 0.45 : 1 }}>
                 <div className="grow">
                   <b>{d.name}</b>
-                  <div className="c-sub">{catName(d.catId)}</div>
+                  <div className="c-sub">{catName(d.catId)}{hasSpecs(d) ? ` · ${specsOf(d).map((g) => g.name).join('/')}` : ''}</div>
                 </div>
-                <span className="c-price">¥{d.price}</span>
-                {!d.soldOut && (cart[d.id] ? (
+                <span className="c-price">¥{d.price}{hasSpecs(d) && <span style={{ fontSize: 11 }}>起</span>}</span>
+                {!d.soldOut && (cart[`${d.id}|`] ? (
                   <div className="c-step">
-                    <button onClick={() => dec(d.id)}>−</button><b>{cart[d.id].qty}</b>
-                    <button onClick={() => addDish(d)}>＋</button>
+                    <button onClick={() => dec(`${d.id}|`)}>−</button><b>{cart[`${d.id}|`].qty}</b>
+                    <button onClick={() => tapDish(d)}>＋</button>
                   </div>
-                ) : <button className="c-add" onClick={() => addDish(d)}>＋</button>)}
+                ) : <button className="c-add" onClick={() => tapDish(d)}>＋</button>)}
               </div>
             ))}
             {!dishes.length && <div className="c-sub" style={{ padding: 12 }}>这个分类暂时没有菜。</div>}
           </div>
+
+          {pick && (
+            <div className="c-mask" onClick={() => setPick(null)}>
+              <div className="c-modal" onClick={(e) => e.stopPropagation()}>
+                <b className="c-modal-title">{pick.dish.name} <span className="c-price">¥{unitPrice(pick.dish, pick.sel)}</span></b>
+                {specsOf(pick.dish).map((g) => (
+                  <div key={g.name} style={{ marginTop: 10 }}>
+                    <div className="c-sub" style={{ marginBottom: 6 }}>{g.name}</div>
+                    <div className="c-chips">
+                      {g.opts.map((o) => (
+                        <button key={o.n} className={pick.sel[g.name] === o.n ? 'c-chip on' : 'c-chip'}
+                                onClick={() => setPick((p) => ({ ...p, sel: { ...p.sel, [g.name]: o.n } }))}>
+                          {o.n}{o.d ? ` ${o.d > 0 ? '+' : ''}${o.d}` : ''}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <button className="c-btn block" style={{ marginTop: 14 }}
+                        onClick={() => { addLine(pick.dish, pick.sel); setPick(null); }}>加入购物车</button>
+              </div>
+            </div>
+          )}
           <div className="c-cartbar">
             <span className="c-sum">¥{total}</span>
             <span className="c-sub">{count} 份</span>

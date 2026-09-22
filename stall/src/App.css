@@ -152,6 +152,14 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; 
 .mrow .dots { flex: 1; border-bottom: 1px dotted #c8ccd2; margin: 0 6px; transform: translateY(4px); }
 .mrow .price { font-weight: 700; }
 
+/* 规格（辣度/份量） */
+.chiprow { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--line); background: #fff; border-radius: 99px; padding: 9px 16px;
+        font-size: 15px; cursor: pointer; color: var(--ink); }
+.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
+.chip.sm { padding: 4px 12px; font-size: 13px; }
+.specbox { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-top: 4px; }
+
 /* 语音点菜 */
 .micbtn { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line); background: #fff;
           font-size: 22px; cursor: pointer; flex: none; }
