@@ -47,12 +47,15 @@ export default function Tables({ db, update, nav, onAdmin }) {
       onCancel: () => setListening(false), // 录音未开始就松手：静默退出
     }, db.shop);
   };
-  const stopVoice = () => { recRef.current?.(); };
+  const stopVoice = () => {
+    setListening(false); // 松手立即退出「正在听」，不依赖识别引擎回调
+    recRef.current?.();
+  };
 
   // 按住说话期间，监听全局「松手」：无论手指在按钮还是波形层上，都触发停止
   useEffect(() => {
     if (!listening) return;
-    const end = () => recRef.current?.();
+    const end = () => { setListening(false); recRef.current?.(); };
     document.addEventListener('touchend', end);
     document.addEventListener('mouseup', end);
     return () => {
