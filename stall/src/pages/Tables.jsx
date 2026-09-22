@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { tableState, orderTotal, paidTotal, dueTotal, dueText, unservedCount, hasCall, walkOrders, submitOrder, sayItemsText, specSelText, unitPriceOf } from '../store.js';
 import { answerRemote } from '../sync.js';
 import { asrAvailable, asrListen } from '../asr.js';
@@ -44,6 +44,18 @@ export default function Tables({ db, update, nav, onAdmin }) {
     }, db.shop);
   };
   const stopVoice = () => { recRef.current?.(); };
+
+  // 按住说话期间，监听全局「松手」：无论手指在按钮还是波形层上，都触发停止
+  useEffect(() => {
+    if (!listening) return;
+    const end = () => recRef.current?.();
+    document.addEventListener('touchend', end);
+    document.addEventListener('mouseup', end);
+    return () => {
+      document.removeEventListener('touchend', end);
+      document.removeEventListener('mouseup', end);
+    };
+  }, [listening]);
 
   const editRow = (i, patch) => setPreview((p) => ({ ...p, items: p.items.map((r, k) => (k === i ? { ...r, ...patch } : r)) }));
   const dropRow = (i) => setPreview((p) => ({ ...p, items: p.items.filter((_, k) => k !== i) }));
@@ -165,9 +177,9 @@ export default function Tables({ db, update, nav, onAdmin }) {
       {/* ── 底部居中「按住说话」大按钮 ── */}
       {asrAvailable(db.shop) && !listening && !preview && !pickTable && (
         <button className="voice-btn"
-                onPointerDown={startVoice}
-                onPointerUp={stopVoice}
-                onPointerCancel={stopVoice}
+                onTouchStart={(e) => { e.preventDefault(); startVoice(); }}
+                onMouseDown={startVoice}
+                onTouchCancel={stopVoice}
                 onContextMenu={(e) => e.preventDefault()}>
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
