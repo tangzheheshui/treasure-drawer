@@ -16,6 +16,7 @@
 import { authToken } from './sync.js';
 
 let active = null; // 进行中的会话；新会话开始时自动顶掉旧的
+let cachedStream = null; // 复用麦克风流：首次授权后缓存，避免每次按住都弹权限
 
 const online = (cfg) => !!(cfg && cfg.pbBase && cfg.pbId);
 const webkit = () => (typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition));
@@ -54,57 +55,72 @@ function webkitListen({ onText, onEnd, onError }) {
 }
 
 // ── 服务器代理（百度一句话识别，key 在服务器）：按住录、松手停 → 转 16k WAV → POST 代理 ──
-async function serverListen({ onVolume, onEnd, onError }, cfg) {
-  let stream, audioCtx, rec, raf, stopped = false;
+// 同步返回 stop（松手才能真的停），拿麦克风/录音在内部异步进行。
+function serverListen({ onVolume, onEnd, onError }, cfg) {
+  let audioCtx = null, rec = null, raf = 0, stopped = false;
 
   const fail = (code, msg) => { onError && onError(code, msg); };
-  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-  catch (e) { fail('not-allowed', '麦克风没权限，请在浏览器设置里允许后重试'); return () => {}; }
-
-  const AC = window.AudioContext || window.webkitAudioContext;
-  audioCtx = new AC();
-  const source = audioCtx.createMediaStreamSource(stream);
-  const analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 512;
-  source.connect(analyser);
-  const volBuf = new Uint8Array(analyser.fftSize);
-
-  rec = new MediaRecorder(stream);
-  const chunks = [];
-  rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
-
-  rec.onstop = async () => {
-    cancelAnimationFrame(raf);
-    try { source.disconnect(); } catch { /* 已断 */ }
-    stream.getTracks().forEach((t) => t.stop());
-    try { audioCtx.close(); } catch { /* 忽略 */ }
-    if (!chunks.length) { onEnd && onEnd(''); return; } // 没录到声音
-    try {
-      const wav = await blobToWav16k(new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
-      const text = await proxyRecognize(wav, cfg);
-      onEnd && onEnd(text);
-    } catch (e) {
-      fail('error', `识别失败：${String(e.message || e).slice(0, 60)}`);
-    }
-  };
-
-  // 实时音量（波形反馈）：每帧算 rms 抛给 UI
-  const tick = () => {
-    analyser.getByteTimeDomainData(volBuf);
-    let sum = 0;
-    for (let i = 0; i < volBuf.length; i++) { const v = (volBuf[i] - 128) / 128; sum += v * v; }
-    onVolume && onVolume(Math.sqrt(sum / volBuf.length));
-    raf = requestAnimationFrame(tick);
+  const cleanup = () => {
+    if (raf) cancelAnimationFrame(raf);
+    try { audioCtx && audioCtx.close(); } catch { /* 忽略 */ }
+    audioCtx = null;
   };
 
   const stop = () => {
     if (stopped) return;
     stopped = true;
-    try { rec.stop(); } catch { /* 已停 */ }
+    if (rec && rec.state !== 'inactive') { try { rec.stop(); } catch { /* 已停 */ } }
+    else cleanup(); // 还没开始录音（在等权限/已结束），直接清理
   };
   active = stop;
-  rec.start();
-  raf = requestAnimationFrame(tick);
+
+  (async () => {
+    // 复用缓存麦克风流：首次授权一次，之后不再弹权限
+    try {
+      if (!cachedStream) cachedStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      cleanup();
+      if (!stopped) fail('not-allowed', '麦克风没权限，请在浏览器设置里允许后重试');
+      return;
+    }
+    if (stopped) { cleanup(); return; } // 用户已在等权限时松手取消
+
+    const AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
+    const source = audioCtx.createMediaStreamSource(cachedStream);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 512;
+    source.connect(analyser);
+    const volBuf = new Uint8Array(analyser.fftSize);
+
+    rec = new MediaRecorder(cachedStream);
+    const chunks = [];
+    rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+    rec.onstop = async () => {
+      cleanup();
+      if (!chunks.length) { onEnd && onEnd(''); return; } // 没录到声音
+      try {
+        const wav = await blobToWav16k(new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
+        const text = await proxyRecognize(wav, cfg);
+        onEnd && onEnd(text);
+      } catch (e) {
+        fail('error', `识别失败：${String(e.message || e).slice(0, 60)}`);
+      }
+    };
+
+    // 实时音量（波形反馈）：每帧算 rms 抛给 UI
+    const tick = () => {
+      analyser.getByteTimeDomainData(volBuf);
+      let sum = 0;
+      for (let i = 0; i < volBuf.length; i++) { const v = (volBuf[i] - 128) / 128; sum += v * v; }
+      onVolume && onVolume(Math.sqrt(sum / volBuf.length));
+      raf = requestAnimationFrame(tick);
+    };
+
+    rec.start();
+    raf = requestAnimationFrame(tick);
+  })();
+
   return stop;
 }
 
