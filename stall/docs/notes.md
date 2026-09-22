@@ -96,7 +96,9 @@ seen: [订单记录 id]               // 实时去重
 
 ## 百度语音识别接入（2026-09-22）
 人拍板先用百度（对比过火山：火山走 WebSocket 且鉴权塞 Header，浏览器原生 WebSocket 不支持自定义 Header，必须架后端代理，负优化；百度走 HTTP 直连 + 免费 200 万次）。
-- **key 配在服务器，摊主零配置**（人明确「不可能让摊主配置」）：百度 Key/Secret 放 PocketBase 服务器环境变量 `BAIDU_KEY`/`BAIDU_SECRET`，`pb_hooks/baidu-asr.pb.js` 注册 `POST /api/baidu-asr` 代理路由（0.23 `routerAdd` + `e.bindBody(DynamicModel)` + `$apis.requireRecordAuth()` 校验登录用户 + `$http.send` 换 token/调百度）。摊主端只发音频、收文字，全程不碰 key。
+- **key 配在服务器，摊主零配置**（人明确「不可能让摊主配置」）：百度 Key/Secret 放 PocketBase 服务器环境变量 `BAIDU_KEYS`（JSON 数组），`pb_hooks/baidu-asr.pb.js` 注册 `POST /api/baidu-asr` 代理路由（`routerAdd` + `e.bindBody(DynamicModel)` + `$apis.requireAuth()` 校验登录 + `$http.send` 换 token/调百度）。摊主端只发音频、收文字，全程不碰 key。
+- **PocketBase 0.40 实测踩坑**（生产机是 0.40.3，不是 0.23）：① 中间件名 `requireRecordAuth`→**`requireAuth`**（0.40 起改名）；② **handler 回调访问不到 pb_hooks 文件的顶层函数/变量**（`var`/`function` 都不行，报 `xxx is not defined`），所以逻辑全部内联进 handler、token 缓存/轮询指针挂 **`globalThis`** 跨请求持久；③ `$http.send({url,method,body})` 返回 `{ statusCode, json, raw }`，`json` 是已解析对象；`$os.getenv`、`encodeURIComponent`、`globalThis` 均可用。
+- **部署完成（2026-09-22）**：SSH 到 193.112.26.217（ubuntu，免密 sudo）→ 上传 `pb_hooks/baidu-asr.pb.js` → 建 `pb_hooks/` 目录 → 写 `/opt/pocketbase/asr.env`（`BAIDU_KEYS`）+ systemd override `pocketbase.service.d/asr.conf`（`EnvironmentFile=`）→ `daemon-reload` + `restart`。端到端已验：未登录 401、带 token 静音音频返回 `{"text":"不知道。"}`（百度对静音的兜底，证明全链路通）。待真机验真实语音。
 - `asr.js` **双路径自动选**：已联机（`shop.pbBase`+`pbId`）→ 走服务器代理 `/api/baidu-asr`（带 PB 登录 token）；未联机 → 回退浏览器内置 ASR。点单页 `asrAvailable(db.shop)` / `asrListen(handlers, db.shop)` 自动选；`asrLive()` 报告是否实时上屏（百度一句话识别无中途结果，收听层只显示「正在听…」）。
 - 前端录音/转码链路：`getUserMedia` + `MediaRecorder`（webm）→ `AnalyserNode` 静音检测（rms>0.025 起算有声，之后连续静音 1.5s 自动结束，点屏幕可提前结束）→ `decodeAudioData` → `OfflineAudioContext` 重采样 16k 单声道 → 封 WAV → base64 → POST 代理。服务器换/缓存 token（模块级变量，约 30 天）→ 调 `vop.baidu.com/server_api`。
 - 设置页「语音识别」卡改为纯说明：识别引擎由服务器统一提供，显示联机状态（联机=服务器识别可用，未联机=仅 iPhone 浏览器识别）。**不再有摊主填 key 的输入框**。
